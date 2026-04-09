@@ -180,9 +180,54 @@ async def run_trial(case_desc, max_rounds):
     result = await app.ainvoke(initial_state)
     return result
 
-# Sidebar
-with st.sidebar:
-    st.title("⚖️ CourtRoom AI")
+# App State Initialization
+if "app_started" not in st.session_state:
+    st.session_state.app_started = False
+
+if not st.session_state.app_started:
+    # --- LANDING PAGE ---
+    st.markdown("""
+    <div style="text-align: center; margin-top: 50px; margin-bottom: 50px;">
+        <h1 style="font-size: 4em; font-weight: 900; margin-bottom: 0px;">CourtROOM <span style="color: #0068c9;">AI</span></h1>
+        <p style="font-size: 1.5em; color: #555;">Autonomous Multi-Agent Legal Simulation Engine</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("""
+        <div style="text-align: center; padding: 20px; border-radius: 10px; background: #fafafa; border: 1px solid #eee; height: 100%;">
+            <h3 style="margin-top: 0;">🤖 15 Autonomous Agents</h3>
+            <p style="color: #666;">Prosecution, Defense, a Fact-Checking Judge, and a diverse 12-person demographically accurate Jury acting in isolated logical environments.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown("""
+        <div style="text-align: center; padding: 20px; border-radius: 10px; background: #fafafa; border: 1px solid #eee; height: 100%;">
+            <h3 style="margin-top: 0;">🔎 RAG + Live Web Search</h3>
+            <p style="color: #666;">Ingests heavy PDF case files and utilizes Tavily Search to cross-reference legal precedents in real-time to avoid LLM hallucination.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col3:
+        st.markdown("""
+        <div style="text-align: center; padding: 20px; border-radius: 10px; background: #fafafa; border: 1px solid #eee; height: 100%;">
+            <h3 style="margin-top: 0;">🛡️ High-Availability Failover</h3>
+            <p style="color: #666;">Built-in custom traffic routing and LLM cascading (Llama-3.3 ➔ Mixtral ➔ Gemma) ensures zero downtime even during extreme rate limits.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        if st.button("⚖️ Enter the Courtroom", use_container_width=True, type="primary"):
+            st.session_state.app_started = True
+            st.rerun()
+
+else:
+    # --- MAIN APPLICATION ---
+    # Sidebar
+    with st.sidebar:
+        st.title("⚖️ CourtRoom AI")
     
     # Initialize session state for case input if not present
     if "case_data" not in st.session_state:
@@ -250,6 +295,9 @@ with st.sidebar:
                 st.write(f"{m}: {count}")
     
     st.divider()
+    if st.button("⬅️ Back to Home"):
+        st.session_state.app_started = False
+        st.rerun()
     st.markdown("Powered by **LangGraph + Groq + Tavily**")
 
 # Main Area

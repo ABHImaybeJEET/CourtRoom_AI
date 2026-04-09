@@ -4,12 +4,16 @@ from langchain_community.vectorstores import FAISS
 from rag.vector_store import get_embeddings, save_vector_store, load_vector_store
 
 def ingest_pdf(file_path):
-    doc = fitz.open(file_path)
-    text = ""
-    for page in doc:
-        text += page.get_text()
+    from langchain_community.document_loaders import PyMuPDFLoader
     
-    return ingest_text(text)
+    # Use Langchain's native loader to preserve page data, formatting, and paragraphs
+    loader = PyMuPDFLoader(file_path)
+    docs = loader.load()
+    
+    # Combine the parsed page objects cleanly into a formatted master string
+    parsed_text = "\n\n".join([doc.page_content for doc in docs])
+    
+    return ingest_text(parsed_text)
 
 def ingest_text(text):
     text_splitter = RecursiveCharacterTextSplitter(
