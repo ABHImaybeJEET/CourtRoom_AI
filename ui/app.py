@@ -28,50 +28,85 @@ st.set_page_config(page_title="CourtRoom AI", layout="wide")
 st.markdown("""
 <style>
     .prosecution-box {
-        border-left: 5px solid #ff4b4b;
-        padding: 15px;
-        margin-bottom: 20px;
-        background-color: #fff5f5;
-        border-radius: 5px;
+        border-top: 4px solid #ff4b4b;
+        padding: 20px;
+        margin-bottom: 25px;
+        background-color: #ffffff;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border-radius: 8px;
         color: #1a1a1a;
     }
     .defense-box {
-        border-left: 5px solid #0068c9;
-        padding: 15px;
-        margin-bottom: 20px;
-        background-color: #f0f7ff;
-        border-radius: 5px;
+        border-top: 4px solid #0068c9;
+        padding: 20px;
+        margin-bottom: 25px;
+        background-color: #ffffff;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border-radius: 8px;
         color: #1a1a1a;
     }
     .judge-box {
-        border-left: 5px solid #ffaa00;
-        padding: 15px;
-        margin-bottom: 20px;
-        background-color: #fffdf0;
-        border-radius: 5px;
+        border-top: 4px solid #ffaa00;
+        padding: 20px;
+        margin-bottom: 25px;
+        background-color: #faf9f6;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border-radius: 8px;
         color: #1a1a1a;
+        font-family: serif;
     }
     .juror-card {
-        border: 1px solid #ddd;
-        padding: 10px;
-        border-radius: 8px;
-        background-color: #f9f9f9;
-        text-align: center;
-        color: #1a1a1a;
+        border-top: 3px solid #e0e0e0;
+        padding: 16px;
+        border-radius: 6px;
+        background-color: #fafafa;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        color: #2c2c2c;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        transition: transform 0.2s ease;
+    }
+    .juror-card:hover {
+        transform: translateY(-2px);
+    }
+    .juror-header {
+        font-weight: 700;
+        font-size: 1.05em;
+        margin-bottom: 8px;
+        color: #111;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     .guilty-badge {
-        background-color: #ff4b4b;
+        background-color: #ff3b30;
         color: white;
-        padding: 2px 8px;
+        padding: 3px 8px;
         border-radius: 4px;
-        font-weight: bold;
+        font-weight: 600;
+        font-size: 0.75em;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
     }
     .not-guilty-badge {
-        background-color: #28a745;
+        background-color: #34c759;
         color: white;
-        padding: 2px 8px;
+        padding: 3px 8px;
         border-radius: 4px;
-        font-weight: bold;
+        font-weight: 600;
+        font-size: 0.75em;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    .juror-reasoning {
+        font-size: 0.85em;
+        line-height: 1.4;
+        color: #555;
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px dashed #ddd;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -159,7 +194,8 @@ with st.sidebar:
                               placeholder="Enter case details or load sample...")
     
     sample_cases = {
-        "Insider Trading": "data/sample_cases/insider_trading.txt",
+        "Insider Trading (Wall Street)": "data/sample_cases/insider_trading.txt",
+        "Satyam Scam (India Financial Fraud)": "data/sample_cases/india_fraud.txt",
         "Corporate Fraud (Theranos config)": "data/sample_cases/corporate_fraud.txt",
         "IP Theft (Trade Secrets)": "data/sample_cases/ip_infringement.txt"
     }
@@ -179,6 +215,40 @@ with st.sidebar:
     rounds = st.slider("Argument rounds", min_value=1, max_value=3, value=2)
     
     begin_trial = st.button("🏛️ Begin Trial", use_container_width=True)
+    
+    if st.button("🧹 Clear Case Memory"):
+        if os.path.exists("data/faiss_index"):
+            import shutil
+            shutil.rmtree("data/faiss_index")
+        st.success("Memory cleared! Ready for new case.")
+
+    # Instant Demo feature
+    if selected_sample in ["Insider Trading (Wall Street)", "Satyam Scam (India Financial Fraud)"] and st.session_state.case_data:
+        if st.button("⚡ Instant Preview (Recorded Demo)", use_container_width=True):
+            file_map = {
+                "Insider Trading (Wall Street)": "data/cached_results/insider_trading.json",
+                "Satyam Scam (India Financial Fraud)": "data/cached_results/india_fraud.json"
+            }
+            try:
+                with open(file_map[selected_sample], "r", encoding="utf-8") as f:
+                    cached_data = json.load(f)
+                    st.session_state.final_state = cached_data
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Could not load cache: {e}")
+
+    st.divider()
+    
+    # Usage Stats
+    if "api_stats" in st.session_state:
+        st.subheader("📊 Session API Usage")
+        stats = st.session_state.api_stats
+        st.caption(f"Total Model Calls: {stats['total_calls']}")
+        st.caption(f"Fallback Redirects: {stats['fallback_count']}")
+        with st.expander("Model Breakdown"):
+            for m, count in stats['model_usage'].items():
+                st.write(f"{m}: {count}")
+    
     st.divider()
     st.markdown("Powered by **LangGraph + Groq + Tavily**")
 
@@ -200,15 +270,23 @@ if begin_trial:
 
             # Run graph
             try:
-                final_state = asyncio.run(run_trial(case_input, rounds))
+                # Use a new event loop for this run to avoid conflict with streamlit
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                final_state = loop.run_until_complete(run_trial(case_input, rounds))
                 st.session_state.final_state = final_state
+                loop.close()
             except Exception as e:
                 st.error(f"Error during trial execution: {e}")
                 
 if "final_state" in st.session_state:
     state = st.session_state.final_state
 
-    st.header("📋 Live Trial Feed")
+    # Fairness Check: Only show results if the final verdict was reached
+    if not state.get('final_verdict'):
+        st.error("⚠️ Trial was interrupted. To ensure legal fairness, partial results will not be displayed. Please check your API keys/internet and try again.")
+    else:
+        st.header("📋 Live Trial Feed")
     
     # Check if we have valid outputs
     prosecution = state.get('prosecution_argument', {})
@@ -290,15 +368,17 @@ if "final_state" in st.session_state:
                 with cols[j]:
                     st.markdown(f"""
                     <div class="juror-card">
-                        <b>Juror #{juror['juror_id']}</b><br/>
-                        <small>{juror['profile']['age']}y, {juror['profile']['occupation']}</small><br/>
-                        <span class="{'guilty-badge' if juror['verdict'] == 'Guilty' else 'not-guilty-badge'}">
-                            {juror['verdict']}
-                        </span><br/>
-                        <small>Confidence: {juror['confidence']*100:.0f}%</small>
+                        <div class="juror-header">
+                            <span>#{juror['juror_id']} • <span style="font-weight:normal; font-size: 0.9em;">{juror['profile']['age']}y, {juror['profile']['occupation']}</span></span>
+                        </div>
+                        <div style="margin-top: 5px;">
+                            <span class="{'guilty-badge' if juror['verdict'] == 'Guilty' else 'not-guilty-badge'}">
+                                {juror['verdict']} ({juror['confidence']*100:.0f}%)
+                            </span>
+                        </div>
+                        <div class="juror-reasoning">"{juror['reasoning']}"</div>
                     </div>
                     """, unsafe_allow_html=True)
-                    st.caption(juror['reasoning'])
 
     v_col1, v_col2 = st.columns(2)
     vote_count = state.get('vote_count', {'guilty': 0, 'not_guilty': 0})
