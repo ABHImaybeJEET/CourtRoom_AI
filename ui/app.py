@@ -31,82 +31,85 @@ st.markdown("""
         border-top: 4px solid #ff4b4b;
         padding: 20px;
         margin-bottom: 25px;
-        background-color: #ffffff;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        background-color: rgba(255, 75, 75, 0.05);
         border-radius: 8px;
-        color: #1a1a1a;
+        color: inherit;
     }
     .defense-box {
         border-top: 4px solid #0068c9;
         padding: 20px;
         margin-bottom: 25px;
-        background-color: #ffffff;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        background-color: rgba(0, 104, 201, 0.05);
         border-radius: 8px;
-        color: #1a1a1a;
+        color: inherit;
     }
     .judge-box {
         border-top: 4px solid #ffaa00;
         padding: 20px;
         margin-bottom: 25px;
-        background-color: #faf9f6;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        background-color: rgba(255, 170, 0, 0.05);
         border-radius: 8px;
-        color: #1a1a1a;
+        color: inherit;
         font-family: serif;
     }
     .juror-card {
-        border-top: 3px solid #e0e0e0;
+        border-top: 3px solid rgba(128, 128, 128, 0.3);
         padding: 16px;
-        border-radius: 6px;
-        background-color: #fafafa;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        color: #2c2c2c;
-        height: 100%;
+        border-radius: 8px;
+        background-color: rgba(128, 128, 128, 0.03);
+        color: inherit;
         display: flex;
         flex-direction: column;
         justify-content: flex-start;
-        transition: transform 0.2s ease;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+        margin-bottom: 10px;
     }
     .juror-card:hover {
         transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
     .juror-header {
         font-weight: 700;
         font-size: 1.05em;
         margin-bottom: 8px;
-        color: #111;
+        color: inherit;
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
     .guilty-badge {
-        background-color: #ff3b30;
-        color: white;
+        background-color: rgba(255, 59, 48, 0.15);
+        color: #ff3b30;
         padding: 3px 8px;
         border-radius: 4px;
-        font-weight: 600;
+        font-weight: 700;
         font-size: 0.75em;
         letter-spacing: 0.5px;
         text-transform: uppercase;
+        border: 1px solid rgba(255, 59, 48, 0.3);
     }
     .not-guilty-badge {
-        background-color: #34c759;
-        color: white;
+        background-color: rgba(52, 199, 89, 0.15);
+        color: #34c759;
         padding: 3px 8px;
         border-radius: 4px;
-        font-weight: 600;
+        font-weight: 700;
         font-size: 0.75em;
         letter-spacing: 0.5px;
         text-transform: uppercase;
+        border: 1px solid rgba(52, 199, 89, 0.3);
     }
     .juror-reasoning {
-        font-size: 0.85em;
-        line-height: 1.4;
-        color: #555;
+        font-size: 0.88em;
+        line-height: 1.5;
+        color: inherit;
+        opacity: 0.85;
         margin-top: 12px;
         padding-top: 10px;
-        border-top: 1px dashed #ddd;
+        border-top: 1px dashed rgba(128, 128, 128, 0.2);
     }
 </style>
 """, unsafe_allow_html=True)

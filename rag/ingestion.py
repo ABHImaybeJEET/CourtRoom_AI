@@ -1,4 +1,3 @@
-import fitz  # PyMuPDF
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from rag.vector_store import get_embeddings, save_vector_store, load_vector_store
