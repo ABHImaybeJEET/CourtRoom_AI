@@ -1,0 +1,9 @@
+Case: United States v. Elizabeth Holmes/Theranos (Fictionalized style)
+
+The defendant, CEO of a health-tech startup, is accused of wire fraud by misleading investors about the capabilities of a proprietary blood-testing device. Despite knowing the device was returning inaccurate results, the defendant continued to solicit multi-million dollar investments and formed partnerships with major pharmacy chains. 
+
+Prosecution position: The defendant intentionally lied to investors and patients to secure funding. Internal QA reports explicitly warned the executive team that the device failed validation tests 60% of the time, yet the company publicly claimed 99% accuracy. Investor prospectuses contained forged validation letters from pharmaceutical giants.
+
+Defense position: The defendant believed in the technology and was executing an ambitious development timeline. Over-promising to investors in Silicon Valley is standard puffery and optimistic forecasting, not criminal intent to defraud. The defendant never intended to harm consumers and believed the technical hurdles would be overcome before widespread rollout.
+
+Key precedents potentially relevant: United States v. Weaver (1989), United States v. Ebbers (2006).

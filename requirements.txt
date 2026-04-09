@@ -1,0 +1,13 @@
+langchain
+langchain-groq
+langchain-community
+langgraph
+langsmith
+tavily-python
+faiss-cpu
+sentence-transformers
+pymupdf
+streamlit
+python-dotenv
+reportlab
+plotly

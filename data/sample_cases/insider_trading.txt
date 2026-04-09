@@ -1,0 +1,9 @@
+Case: State v. Alex Morgan — Insider Trading
+
+The defendant Alex Morgan, former CFO of NovaTech Inc., is accused of insider trading under SEC Rule 10b-5. On March 3rd, the defendant sold 180,000 shares of NovaTech stock valued at approximately $2.1 million. Two business days later, on March 5th, NovaTech publicly announced a 34% earnings miss, causing the stock to drop 41% in a single session.
+
+Prosecution position: The defendant had direct access to Q1 earnings data showing the miss was imminent. The timing of the sale — 48 hours before announcement — is not coincidental. The defendant's personal brokerage account had not seen a sale of this magnitude in the prior 36 months. The defendant also texted the phrase 'get out now' to a family member on March 2nd.
+
+Defense position: The defendant had a valid SEC 10b5-1 trading plan filed on September 14th of the prior year — six full months before the sale. The sale was automatically executed by a third-party broker per the plan schedule with no manual trigger by the defendant. The phrase 'get out now' referred to a family road trip and was taken out of context. All trades were disclosed to the company's legal compliance officer in advance.
+
+Key precedents potentially relevant: SEC v. Cuban (2013), United States v. O'Hagan (1997), Dirks v. SEC (1983).

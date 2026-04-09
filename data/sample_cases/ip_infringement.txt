@@ -1,0 +1,9 @@
+Case: StellarTech LLC v. NovaDrive Inc. — Trade Secret Misappropriation
+
+The defendant, a former senior engineer at a leading self-driving car company (StellarTech), downloaded 14,000 highly confidential design files containing LiDAR technology schematics just before resigning. Two weeks later, the defendant formed his own startup, which was subsequently acquired by a major competitor (NovaDrive Inc.) for $680 million. The plaintiff alleges the competitor used these stolen trade secrets to accelerate their own self-driving program.
+
+Prosecution position: The downloading of the files was premeditated theft under the Defend Trade Secrets Act (DTSA). The rapid formation and acquisition of the startup was a sham corporate vehicle designed specifically to launder the stolen IP and legally transfer it to NovaDrive Inc. Forensic audits show NovaDrive's new LiDAR iteration identically matches StellarTech prototypes.
+
+Defense position: The defendant downloaded the files for personal backup and routine remote work before his departure, which was common practice. The files were never transferred to NovaDrive Inc.'s corporate servers or integrated into their designs. NovaDrive Inc.'s LiDAR architecture was independently developed over five years utilizing fundamentally different optic arrays.
+
+Key precedents potentially relevant: Waymo LLC v. Uber Technologies, Inc. (2018), Kewanee Oil Co. v. Bicron Corp. (1974).

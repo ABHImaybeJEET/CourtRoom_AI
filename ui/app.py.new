@@ -1,0 +1,28 @@
+import os
+import sys
+from pathlib import Path
+
+# MANDATORY: Add project root to sys.path before any local imports
+project_root = str(Path(__file__).resolve().parent.parent)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import streamlit as st
+import asyncio
+import io
+from dotenv import load_dotenv
+
+# Now we can import from our local packages
+from graph.courtroom_graph import create_courtroom_graph
+from rag.ingestion import ingest_pdf, ingest_text
+from reportlab.lib.pagesizes import LETTER
+from reportlab.pdfgen import canvas
+import plotly.graph_objects as go
+import json
+
+load_dotenv()
+
+st.set_page_config(page_title="CourtRoom AI", layout="wide")
+
+# ... rest of the code ...
+# (I will use multi_replace to keep the rest intact or just write it all)
