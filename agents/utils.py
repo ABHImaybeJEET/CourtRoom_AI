@@ -1,5 +1,6 @@
 import re
 import json
+import asyncio
 
 def parse_json_from_llm(content: str) -> dict:
     """Safely extracts JSON from LLM response which might have markdown formatting."""
@@ -31,18 +32,40 @@ def parse_json_from_llm(content: str) -> dict:
 
 async def safe_ainvoke(messages, temperature=0.2):
     from langchain_groq import ChatGroq
-    try:
-        # We try the primary heavy model first
-        llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=temperature)
-        return await llm.ainvoke(messages)
-    except Exception as e:
-        print(f"Primary model failed (Error: {e}), falling back to llama-3.1-8b-instant...")
-        try:
-            # First fallback: llama-3.1-8b
-            llm_fallback = ChatGroq(model_name="llama-3.1-8b-instant", temperature=temperature)
-            return await llm_fallback.ainvoke(messages)
-        except Exception as e2:
-            print(f"Secondary model failed (Error: {e2}), falling back to fastest model miensrtal-sagemath...")
-            # Last resort fallback: extremely lightweight
-            llm_last = ChatGroq(model_name="mixtral-8x7b-32768", temperature=temperature)
-            return await llm_last.ainvoke(messages)
+    import random
+    import time
+    
+    # Ordered list of models to try from heavy to light/reliable
+    models = [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "mixtral-8x7b-32768",
+        "gemma2-9b-it",
+        "llama3-8b-8192"
+    ]
+    
+    last_err = None
+    
+    # Try each model in sequence
+    for model_name in models:
+        # Retry each model up to 2 times with backoff if rate limited
+        for attempt in range(2):
+            try:
+                llm = ChatGroq(model_name=model_name, temperature=temperature)
+                # Add a tiny jitter to avoid hitting same-second limits
+                await asyncio.sleep(random.uniform(0.1, 0.5))
+                return await llm.ainvoke(messages)
+            except Exception as e:
+                last_err = e
+                # If rate limited (429), sleep longer
+                if "429" in str(e):
+                    wait_time = (attempt + 1) * 2 + random.uniform(1, 3)
+                    print(f"Rate limited on {model_name}. Waiting {wait_time:.1f}s...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    # Generic error (500 etc), skip to next model immediately
+                    print(f"Error on {model_name}: {e}. Trying fallback...")
+                    break
+                    
+    # If all models fail, raise the last encountered error
+    raise last_err
