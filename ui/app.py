@@ -189,30 +189,30 @@ if not st.session_state.app_started:
     st.markdown("""
     <div style="text-align: center; margin-top: 50px; margin-bottom: 50px;">
         <h1 style="font-size: 4em; font-weight: 900; margin-bottom: 0px;">CourtROOM <span style="color: #0068c9;">AI</span></h1>
-        <p style="font-size: 1.5em; color: #555;">Autonomous Multi-Agent Legal Simulation Engine</p>
+        <p style="font-size: 1.5em; opacity: 0.8;">Autonomous Multi-Agent Legal Simulation Engine</p>
     </div>
     """, unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("""
-        <div style="text-align: center; padding: 20px; border-radius: 10px; background: #fafafa; border: 1px solid #eee; height: 100%;">
+        <div style="text-align: center; padding: 20px; border-radius: 10px; border: 1px solid rgba(128,128,128,0.2); height: 100%;">
             <h3 style="margin-top: 0;">🤖 15 Autonomous Agents</h3>
-            <p style="color: #666;">Prosecution, Defense, a Fact-Checking Judge, and a diverse 12-person demographically accurate Jury acting in isolated logical environments.</p>
+            <p style="opacity: 0.8;">Prosecution, Defense, a Fact-Checking Judge, and a diverse 12-person demographically accurate Jury acting in isolated logical environments.</p>
         </div>
         """, unsafe_allow_html=True)
     with col2:
         st.markdown("""
-        <div style="text-align: center; padding: 20px; border-radius: 10px; background: #fafafa; border: 1px solid #eee; height: 100%;">
+        <div style="text-align: center; padding: 20px; border-radius: 10px; border: 1px solid rgba(128,128,128,0.2); height: 100%;">
             <h3 style="margin-top: 0;">🔎 RAG + Live Web Search</h3>
-            <p style="color: #666;">Ingests heavy PDF case files and utilizes Tavily Search to cross-reference legal precedents in real-time to avoid LLM hallucination.</p>
+            <p style="opacity: 0.8;">Ingests heavy PDF case files and utilizes Tavily Search to cross-reference legal precedents in real-time to avoid LLM hallucination.</p>
         </div>
         """, unsafe_allow_html=True)
     with col3:
         st.markdown("""
-        <div style="text-align: center; padding: 20px; border-radius: 10px; background: #fafafa; border: 1px solid #eee; height: 100%;">
+        <div style="text-align: center; padding: 20px; border-radius: 10px; border: 1px solid rgba(128,128,128,0.2); height: 100%;">
             <h3 style="margin-top: 0;">🛡️ High-Availability Failover</h3>
-            <p style="color: #666;">Built-in custom traffic routing and LLM cascading (Llama-3.3 ➔ Mixtral ➔ Gemma) ensures zero downtime even during extreme rate limits.</p>
+            <p style="opacity: 0.8;">Built-in custom traffic routing and LLM cascading (Llama-3.3 ➔ Mixtral ➔ Gemma) ensures zero downtime even during extreme rate limits.</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -222,12 +222,13 @@ if not st.session_state.app_started:
         if st.button("⚖️ Enter the Courtroom", use_container_width=True, type="primary"):
             st.session_state.app_started = True
             st.rerun()
+            
+    st.stop()
 
-else:
-    # --- MAIN APPLICATION ---
-    # Sidebar
-    with st.sidebar:
-        st.title("⚖️ CourtRoom AI")
+# --- MAIN APPLICATION ---
+# Sidebar
+with st.sidebar:
+    st.title("⚖️ CourtRoom AI")
     
     # Initialize session state for case input if not present
     if "case_data" not in st.session_state:
