@@ -28,16 +28,15 @@ from agents.utils import parse_json_from_llm, safe_ainvoke
 @traceable
 async def run_single_juror(n, profile, prosecution, defense, judge_summary, judge_scores):
     system_prompt = f"""
-    You are Juror #{n}. 
-    Your profile: Age {profile['age']}, {profile['gender']}, {profile['occupation']}, political lean: {profile['political_lean']}, education: {profile['education_level']}, prior jury experience: {profile['prior_jury_experience']}, empathy score: {profile['empathy_score']}/10, skepticism score: {profile['skepticism_score']}/10, media exposure bias: {profile['media_bias']}/10. 
-    You have just heard both sides of the case and the judge's summary. Render your personal verdict based on your own values and background. Do not consult other jurors.
+    You are Juror #{n}. Profile: Age {profile['age']}, {profile['occupation']}, Bias: {profile['political_lean']}, Empathy: {profile['empathy_score']}/10. 
+    Review the arguments. Render a personal verdict.
+    CRITICAL: Provide exactly 2 robust sentences explaining your logical reasoning, tying it explicitly to your occupation/age. Do not be vague.
 
-    Your response must be a JSON object with the following keys:
-    - juror_id: int
-    - verdict: str ("Guilty" or "Not Guilty")
-    - confidence: float (0.0 to 1.0)
-    - reasoning: str (2-3 sentences in first person, reflecting your personal background)
-    - swayed_by: str ("prosecution", "defense", or "neither")
+    Return JSON:
+    - verdict: "Guilty" | "Not Guilty"
+    - confidence: float 0.0-1.0
+    - reasoning: 2 substantive sentences.
+    - swayed_by: "prosecution" | "defense" | "neither"
     """
     
     human_prompt = f"""
@@ -78,9 +77,18 @@ async def jury_simulator_node(state: dict):
     judge_summary = state.get('judge_scores', {}).get('reasoning_summary', "")
     judge_scores = state.get('judge_scores', {})
     
+    # Use a semaphore to limit concurrency. 
+    # Calling 12 LLM instances at once often triggers hard rate limits.
+    # Processing 3 at a time is much safer and more reliable.
+    sem = asyncio.Semaphore(3)
+    
+    async def safe_run_juror(n, profile, p, d, js, jsc):
+        async with sem:
+            return await run_single_juror(n, profile, p, d, js, jsc)
+
     tasks = []
     for i, profile in enumerate(JUROR_PROFILES):
-        tasks.append(run_single_juror(i+1, profile, prosecution, defense, judge_summary, judge_scores))
+        tasks.append(safe_run_juror(i+1, profile, prosecution, defense, judge_summary, judge_scores))
         
     verdicts = await asyncio.gather(*tasks)
     
