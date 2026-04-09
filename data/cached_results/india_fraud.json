@@ -1,0 +1,48 @@
+{
+    "case_description": "On January 7, 2009, Ramalinga Raju, the Chairman of Satyam Computer Services, a leading Indian IT firm, confessed that the company's accounts had been falsified to the tune of 5,000 Crore INR. The prosecution alleges criminal conspiracy and cheating under the IPC, while the defense argues mitigating circumstances of a cover-up spiraling out of control without direct intent for personal looting.",
+    "final_verdict": "Guilty",
+    "prosecution_argument": {
+        "argument_text": "The prosecution stands firm on the irrefutable evidence of systematic corporate fraud. The Chairman and his inner circle fabricated 7,561 fake invoices and forged bank statements from leading financial institutions to artificially inflate the company's cash reserves by over ₹5,000 Crores. This is not corporate mismanagement; it is a meticulously planned criminal conspiracy under Sections 120B, 420, 467, and 471 of the Indian Penal Code. The defense's 'riding the tiger' analogy cannot mask the deliberate and prolonged cheating of retail investors and institutional shareholders.",
+        "cited_sources": ["Indian Penal Code Section 420 (Cheating)", "IPC Section 120B (Criminal Conspiracy)", "SEBI (Prohibition of Fraudulent and Unfair Trade Practices) Regulations, 2003"],
+        "confidence_score": 0.95,
+        "legal_strategy": "evidentiary and statutory"
+    },
+    "defense_argument": {
+        "argument_text": "We do not deny that financial discrepancies occurred, but we categorically deny malicious, selfish intent to siphon funds. The Chairman's actions were driven by an acute fear of hostile takeovers and a desperate attempt to protect the company's public image during a rapid expansion phase. The funds remained entirely within the company's operational ecosystem; personal accounts were not enriched by the alleged missing cash. Furthermore, the catastrophic failure of the external auditors, PricewaterhouseCoopers, to identify these issues over seven years highlights a systemic institutional failure rather than solitary criminal intent.",
+        "cited_sources": ["Companies Act, 1956 (Auditor Responsibilities)", "State of Maharashtra v. Som Nath Thapa (1996) on limits of conspiracy intent"],
+        "confidence_score": 0.50,
+        "legal_strategy": "mitigation and intent-refutation"
+    },
+    "judge_scores": {
+        "preliminary_ruling": "prosecution_favored",
+        "reasoning_summary": "The court finds the defense's argument regarding 'lack of personal enrichment' insufficient to overcome the statutory definition of fraud and cheating under Indian Law. The scale of the forgery is unprecedented. While auditor negligence is noted, it does not absolve the primary actors of executing the fraud.",
+        "prosecution_scores": {
+            "legal_soundness": 10,
+            "evidence_quality": 10,
+            "logical_coherence": 9,
+            "precedent_accuracy": 9
+        },
+        "defense_scores": {
+            "legal_soundness": 4,
+            "evidence_quality": 3,
+            "logical_coherence": 6,
+            "precedent_accuracy": 5
+        }
+    },
+    "vote_count": {"guilty": 12, "not_guilty": 0},
+    "jury_verdicts": [
+        {"juror_id": 1, "profile": {"age": 45, "occupation": "Accountant"}, "verdict": "Guilty", "confidence": 1.0, "reasoning": "As a finance professional, the sheer scale of fabricating 7,000+ invoices is staggering. You don't accidentally forge bank receipts; it's a calculated, criminal distortion of market trust."},
+        {"juror_id": 2, "profile": {"age": 52, "occupation": "Engineer"}, "verdict": "Guilty", "confidence": 0.9, "reasoning": "The technical explanation from the defense doesn't undo the damage. Thousands of middle-class Indian families lost their IT sector investments because of this massive lie."},
+        {"juror_id": 3, "profile": {"age": 31, "occupation": "Construction"}, "verdict": "Guilty", "confidence": 0.8, "reasoning": "If a regular worker lies about a few thousand rupees, they go to jail instantly. These corporate executives shouldn't get away with lying about thousands of crores just because they were 'protecting the company'."},
+        {"juror_id": 4, "profile": {"age": 39, "occupation": "Social Worker"}, "verdict": "Guilty", "confidence": 0.95, "reasoning": "The betrayal of public trust is the most damaging aspect here. The excuse that he didn't personally pocket the cash doesn't help the pensioners whose mutual funds were crushed."},
+        {"juror_id": 5, "profile": {"age": 28, "occupation": "Nurse"}, "verdict": "Guilty", "confidence": 0.85, "reasoning": "People make mistakes, but a seven-year organized cover-up is not a mistake. The fact that the auditors missed it too just means they should all be held accountable, not that Raju is innocent."},
+        {"juror_id": 6, "profile": {"age": 65, "occupation": "Retired Teacher"}, "verdict": "Guilty", "confidence": 0.9, "reasoning": "This sets a terrible example for the nation's youth. The highest echelons of corporate India must be held to the absolute strictest standards of integrity under the IPC."},
+        {"juror_id": 7, "profile": {"age": 41, "occupation": "Business Owner"}, "verdict": "Guilty", "confidence": 0.85, "reasoning": "Running a business is hard, but fabricating margins destroys the entire economic ecosystem. The defense's 'riding the tiger' excuse is essentially an admission of guilt anyway."},
+        {"juror_id": 8, "profile": {"age": 35, "occupation": "Software Developer"}, "verdict": "Guilty", "confidence": 1.0, "reasoning": "Working in IT, this scandal stained the entire Indian tech industry globally. The internal teams had to have known, and the orchestration of this fraud required deliberate leadership."},
+        {"juror_id": 9, "profile": {"age": 48, "occupation": "Bank Manager"}, "verdict": "Guilty", "confidence": 0.95, "reasoning": "Forging bank statements crosses the line from corporate over-optimism to hardcore financial crime. The legal threshold for fraud is clearly met."},
+        {"juror_id": 10, "profile": {"age": 25, "occupation": "Law Student"}, "verdict": "Guilty", "confidence": 0.9, "reasoning": "Section 420 is explicitly clear on fraudulent inducement. The investors were induced to hold or buy stock based on entirely fictitious balance sheets. The guilt is statutory."},
+        {"juror_id": 11, "profile": {"age": 55, "occupation": "Retail Investor"}, "verdict": "Guilty", "confidence": 1.0, "reasoning": "I watched the markets the day this news broke. The financial devastation was immense. Trying to shift blame to the auditors doesn't absolve the CEO who directed the scheme."},
+        {"juror_id": 12, "profile": {"age": 43, "occupation": "Journalist"}, "verdict": "Guilty", "confidence": 0.9, "reasoning": "The documented evidence presented by the prosecution regarding the fake invoices is insurmountable. The defense has offered no factual rebuttal, only an emotional plea for mitigation."}
+    ],
+    "demographic_analysis": "A unanimous Guilty verdict. Across all occupational and age demographics, the sheer magnitude of the forgery (₹5,000+ Crores) entirely negated the defense's argument of 'no personal enrichment.' Jurors with financial or technical backgrounds emphasized the structural damage to the industry, while working-class and older jurors focused heavily on the betrayal of public trust and retail investors."
+}

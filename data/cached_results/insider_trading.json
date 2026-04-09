@@ -1,0 +1,41 @@
+{
+    "case_description": "The defendant, a high-ranking executive at a major pharmaceutical company, is accused of selling $5 million worth of company stock just 48 hours before the public announcement of a failed FDA clinical trial for a signature heart drug. The prosecution alleges the defendant had access to internal trial data indicating failure, while the defense claims the sale was part of a pre-planned diversification strategy formulated months earlier.",
+    "final_verdict": "Guilty",
+    "prosecution_argument": {
+        "argument_text": "The prosecution presents undeniable evidence of temporal proximity and specialized access. The defendant was the primary recipient of the 'Trial Omega' internal failure memo on Monday morning. By Tuesday noon, 95% of their liquid holdings in the firm were liquidated. This is a textbook violation of 17 C.F.R. § 240.10b-5. The defendant used non-public, material information to protect themselves while retail investors suffered the subsequent 40% stock plunge.",
+        "cited_sources": ["Securities Exchange Act Section 10(b)", "Dirks v. SEC (1983)", "United States v. O'Hagan (1997)"],
+        "confidence_score": 0.85,
+        "legal_strategy": "precedent-based"
+    },
+    "defense_argument": {
+        "argument_text": "The prosecution is attempting to criminalize a long-term retirement planning strategy. We have submitted a draft 10b5-1 plan initiated six months prior to the FDA results, clearly outlining the intent to sell stock in the third quarter to fund a medical foundation. The correlation with the FDA memo is coincidental, not causal. The defendant acted with good faith and transparency, having previously disclosed the diversification intent to the Board of Directors.",
+        "cited_sources": ["Rule 10b5-1 Safe Harbor", "Ernst & Ernst v. Hochfelder (1976)"],
+        "confidence_score": 0.65,
+        "legal_strategy": "statutory"
+    },
+    "judge_scores": {
+        "preliminary_ruling": "prosecution_favored",
+        "reasoning_summary": "The court finds the prosecution's evidence of 'Scienter'—the intent to defraud—to be highly persuasive given the extreme volume of the trade and the 48-hour window. The defense's 10b5-1 plan was drafted but notably never formalized or registered with the SEC.",
+        "prosecution_scores": {
+            "legal_soundness": 9,
+            "evidence_quality": 8,
+            "logical_coherence": 9,
+            "precedent_accuracy": 10
+        },
+        "defense_scores": {
+            "legal_soundness": 6,
+            "evidence_quality": 5,
+            "logical_coherence": 7,
+            "precedent_accuracy": 8
+        }
+    },
+    "vote_count": {"guilty": 9, "not_guilty": 3},
+    "jury_verdicts": [
+        {"juror_id": 1, "profile": {"age": 45, "occupation": "Accountant"}, "verdict": "Guilty", "confidence": 0.9, "reasoning": "As an accountant, I follow the numbers. The timing of the stock sale is too precise to be anything other than calculated insider trading."},
+        {"juror_id": 2, "profile": {"age": 52, "occupation": "Engineer"}, "verdict": "Guilty", "confidence": 0.8, "reasoning": "The defendant's logic doesn't hold up. $5 million isn't a 'diversification,' it's an exit strategy when you know the ship is sinking."},
+        {"juror_id": 3, "profile": {"age": 31, "occupation": "Construction"}, "verdict": "Not Guilty", "confidence": 0.6, "reasoning": "I think the government is just picking on a successful person. They didn't prove 100% that he read that specific email before he sold."},
+        {"juror_id": 4, "profile": {"age": 39, "occupation": "Social Worker"}, "verdict": "Guilty", "confidence": 0.95, "reasoning": "Think about the regular families who lost their house money while this guy saved his millions. It's greedy and illegal."},
+        {"juror_id": 5, "profile": {"age": 28, "occupation": "Nurse"}, "verdict": "Guilty", "confidence": 0.7, "reasoning": "He had the information and he used it. Simple as that."}
+    ],
+    "demographic_analysis": "The guilty verdict was driven primarily by older, professional demographic segments (40-60) who valued the strict interpretation of 'fiduciary duty'. Younger, working-class jurors expressed higher skepticism of SEC enforcement metrics but were ultimately outvoted."
+}
