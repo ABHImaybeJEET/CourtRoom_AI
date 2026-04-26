@@ -32,7 +32,8 @@ st.markdown("""
         padding: 20px;
         margin-bottom: 25px;
         background-color: rgba(255, 75, 75, 0.05);
-        border-radius: 8px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(255, 75, 75, 0.05);
         color: inherit;
     }
     .defense-box {
@@ -40,7 +41,8 @@ st.markdown("""
         padding: 20px;
         margin-bottom: 25px;
         background-color: rgba(0, 104, 201, 0.05);
-        border-radius: 8px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 104, 201, 0.05);
         color: inherit;
     }
     .judge-box {
@@ -48,14 +50,15 @@ st.markdown("""
         padding: 20px;
         margin-bottom: 25px;
         background-color: rgba(255, 170, 0, 0.05);
-        border-radius: 8px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(255, 170, 0, 0.05);
         color: inherit;
         font-family: serif;
     }
     .juror-card {
         border-top: 3px solid rgba(128, 128, 128, 0.3);
         padding: 16px;
-        border-radius: 8px;
+        border-radius: 12px;
         background-color: rgba(128, 128, 128, 0.03);
         color: inherit;
         display: flex;
@@ -69,7 +72,7 @@ st.markdown("""
     }
     .juror-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 15px rgba(0,0,0,0.1);
     }
     .juror-header {
         font-weight: 700;
