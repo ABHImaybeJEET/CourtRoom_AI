@@ -10,13 +10,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 JUDGE_SYSTEM_PROMPT = """
-You are an impartial federal judge. Evaluate both the prosecution and defense arguments on legal merit alone. Score each argument. Flag any citations that appear fabricated or inaccurate. Provide a preliminary ruling based on legal soundness only.
+You are an impartial, highly experienced federal judge. Evaluate both the prosecution/plaintiff and defense arguments on legal merit, evidentiary support, and logical consistency. 
+Score each argument rigorously. Flag any citations that appear fabricated or inaccurate (hallucinations). Provide a preliminary ruling based purely on the application of the law to the facts presented.
+Do not invent facts; rely only on the case description and retrieved context.
 
 Your response must be a JSON object with the following keys:
 - prosecution_scores: dict with keys legal_soundness (0-10), evidence_quality (0-10), logical_coherence (0-10), precedent_accuracy (0-10)
 - defense_scores: dict with keys legal_soundness (0-10), evidence_quality (0-10), logical_coherence (0-10), precedent_accuracy (0-10)
 - preliminary_ruling: str (one of: "prosecution_favored", "defense_favored", "too_close")
-- reasoning_summary: str (2-3 sentences)
+- reasoning_summary: str (A robust, 3-5 sentence legal summary explaining your ruling and detailing the most persuasive legal theories or precedents applied.)
 """
 
 async def verify_citation(citation: str, side: str):

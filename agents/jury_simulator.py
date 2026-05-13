@@ -26,26 +26,33 @@ JUROR_PROFILES = [
 from agents.utils import parse_json_from_llm, safe_ainvoke
 
 @traceable
-async def run_single_juror(n, profile, prosecution, defense, judge_summary, judge_scores):
+async def run_single_juror(n, profile, prosecution, defense, judge_summary, judge_scores, case_desc):
     system_prompt = f"""
-    You are Juror #{n}. Profile: Age {profile['age']}, {profile['occupation']}, Bias: {profile['political_lean']}, Empathy: {profile['empathy_score']}/10. 
-    Review the arguments. Render a personal verdict.
-    CRITICAL: Provide exactly 2 robust sentences explaining your logical reasoning, tying it explicitly to your occupation/age. Do not be vague.
+    You are Juror #{n}. Profile: Age {profile['age']}, {profile['occupation']}, Bias: {profile['political_lean']}, Empathy: {profile['empathy_score']}/10, Skepticism: {profile['skepticism_score']}/10. 
+    You are sitting on a jury. Review the case facts, the prosecution's arguments, and the defense's arguments carefully.
+    Apply the standard of "beyond a reasonable doubt" (for criminal) or "preponderance of the evidence" (for civil) implicitly based on the case context.
+    Render a personal verdict based purely on how the arguments and evidence interact with your specific worldview, biases, and professional background.
+    
+    CRITICAL: Provide exactly 2-3 robust sentences explaining your logical reasoning, tying it explicitly to your profile. Do not be vague.
 
     Return JSON:
-    - verdict: "Guilty" | "Not Guilty"
-    - confidence: float 0.0-1.0
-    - reasoning: 2 substantive sentences.
+    - verdict: "Guilty" | "Not Guilty" | "Liable" | "Not Liable"
+    - confidence: float 0.0-1.0 (how sure are you of this verdict)
+    - reasoning: 2-3 substantive sentences.
     - swayed_by: "prosecution" | "defense" | "neither"
     """
     
     human_prompt = f"""
+    Case Description: {case_desc}
+    
     Prosecution's Final Argument: {prosecution}
+    
     Defense's Final Argument: {defense}
+    
     Judge's Scoring & Summary: {judge_summary}
     Judge's Scores: {json.dumps(judge_scores)}
     
-    What is your verdict?
+    What is your verdict? Remember to answer in JSON.
     """
     
     messages = [
@@ -76,30 +83,31 @@ async def jury_simulator_node(state: dict):
     defense = state.get('defense_argument', {}).get('argument_text', "")
     judge_summary = state.get('judge_scores', {}).get('reasoning_summary', "")
     judge_scores = state.get('judge_scores', {})
+    case_desc = state.get('case_description', '')
     
     # Use a semaphore to limit concurrency. 
     # Calling 12 LLM instances at once often triggers hard rate limits.
     # Processing 3 at a time is much safer and more reliable.
     sem = asyncio.Semaphore(3)
     
-    async def safe_run_juror(n, profile, p, d, js, jsc):
+    async def safe_run_juror(n, profile, p, d, js, jsc, cd):
         async with sem:
-            return await run_single_juror(n, profile, p, d, js, jsc)
+            return await run_single_juror(n, profile, p, d, js, jsc, cd)
 
     tasks = []
     for i, profile in enumerate(JUROR_PROFILES):
-        tasks.append(safe_run_juror(i+1, profile, prosecution, defense, judge_summary, judge_scores))
+        tasks.append(safe_run_juror(i+1, profile, prosecution, defense, judge_summary, judge_scores, case_desc))
         
     verdicts = await asyncio.gather(*tasks)
     
-    guilty_count = sum(1 for v in verdicts if v['verdict'] == "Guilty")
-    not_guilty_count = sum(1 for v in verdicts if v['verdict'] == "Not Guilty")
+    guilty_count = sum(1 for v in verdicts if v['verdict'] in ["Guilty", "Liable"])
+    not_guilty_count = sum(1 for v in verdicts if v['verdict'] in ["Not Guilty", "Not Liable"])
     
     final_verdict = "Hung Jury"
     if guilty_count > not_guilty_count:
-        final_verdict = "Guilty"
+        final_verdict = "Guilty / Liable"
     elif not_guilty_count > guilty_count:
-        final_verdict = "Not Guilty"
+        final_verdict = "Not Guilty / Not Liable"
         
     # Simple demographic analysis (Internal logic or another LLM call)
     # Let's use a quick LLM call for analysis

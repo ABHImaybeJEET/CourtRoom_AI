@@ -105,6 +105,16 @@ Once the run completes, download your generated **PDF Trial Transcript** straigh
 
 ---
 
+## 🔮 Future Roadmap & Planned Updates
+- 📡 **Live Legal Database Integration:** Direct API connections to real-world legal databases (e.g., PACER, CourtListener) for live case retrieval and citation validation.
+- 🖼️ **Multi-Modal Evidence Ingestion:** Allow agents to analyze image-based evidence, audio transcripts, and visual exhibits during the trial.
+- 🧑‍⚖️ **Customizable Judge Personas:** Toggle the presiding judge's judicial philosophy (e.g., Strict Textualist, Pragmatist) to observe its impact on the trial outcome.
+- 📊 **Advanced Jury Analytics:** Heatmaps, demographic clustering, and explainable AI metrics detailing exactly *why* specific jury demographics voted the way they did.
+- 💾 **State Persistence:** Ability to pause, save, and resume long-running simulated trials.
+- 🔌 **Expanded Local Model Support:** Out-of-the-box integration for local `Ollama` models to run fully private, offline courtroom simulations.
+
+---
+
 <p align="center">
   <i>Developed for exploring the boundaries of Legal AI and Multi-Agent interactions. Not intended for actual legal advice or judicial replacement.</i>
 </p>
