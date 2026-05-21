@@ -1,74 +1,80 @@
 import re
 import json
 import asyncio
+from typing import Any
 
-def parse_json_from_llm(content: str) -> dict:
-    """Safely extracts JSON from LLM response which might have markdown formatting."""
-    content = content.strip()
-    
+
+def parse_json_from_llm(content: str) -> dict[str, Any]:
+    """Extract JSON from LLM responses even when wrapped in markdown or code fences."""
+    candidate = content.strip()
+
     try:
-        return json.loads(content)
+        return json.loads(candidate)
     except json.JSONDecodeError:
         pass
-        
-    # Attempt to extract from markdown codeblock
-    match = re.search(r'```(?:json)?\s*(.*?)\s*```', content, re.DOTALL)
-    if match:
+
+    code_block_match = re.search(r'```(?:json)?\s*(.*?)\s*```', candidate, re.DOTALL)
+    if code_block_match:
         try:
-            return json.loads(match.group(1))
+            return json.loads(code_block_match.group(1))
         except json.JSONDecodeError:
             pass
-            
-    # Attempt to extract anything that looks like a JSON object / array
-    match = re.search(r'(\{.*\})', content, re.DOTALL)
-    if match:
+
+    object_match = re.search(r'(\{.*\})', candidate, re.DOTALL)
+    if object_match:
         try:
-            return json.loads(match.group(1))
+            return json.loads(object_match.group(1))
         except json.JSONDecodeError:
             pass
-            
-    # Return empty dict if all fails, which triggers specific fallback logic in agents
+
     raise ValueError("Could not parse JSON from response")
 
-async def safe_ainvoke(messages, temperature=0.2):
-    from langchain_groq import ChatGroq
-    import random
-    
-    # Store usage in streamlit session state for UI tracking
-    import streamlit as st
+
+def _get_streamlit_api_stats() -> dict[str, Any] | None:
+    try:
+        import streamlit as st
+    except ImportError:
+        return None
+
     if "api_stats" not in st.session_state:
         st.session_state.api_stats = {"total_calls": 0, "fallback_count": 0, "model_usage": {}}
+    return st.session_state.api_stats
 
+
+async def safe_ainvoke(messages: list[tuple[str, str]], temperature: float = 0.2):
+    from langchain_groq import ChatGroq
+    import random
+
+    api_stats = _get_streamlit_api_stats()
     models = [
         "llama-3.3-70b-versatile",
         "llama-3.1-8b-instant",
         "mixtral-8x7b-32768",
         "gemma2-9b-it",
-        "llama3-8b-8192"
+        "llama3-8b-8192",
     ]
-    
-    last_err = None
-    for i, model_name in enumerate(models):
+
+    last_error = None
+    for model_index, model_name in enumerate(models):
         for attempt in range(2):
             try:
                 llm = ChatGroq(model_name=model_name, temperature=temperature)
                 await asyncio.sleep(random.uniform(0.1, 0.4))
                 response = await llm.ainvoke(messages)
-                
-                # Record success stats
-                st.session_state.api_stats["total_calls"] += 1
-                if i > 0: st.session_state.api_stats["fallback_count"] += 1
-                st.session_state.api_stats["model_usage"][model_name] = st.session_state.api_stats["model_usage"].get(model_name, 0) + 1
-                
-                # Tag the response content with the model name for transparency
-                # We won't modify the text, but the agent can see it if needed
+
+                if api_stats is not None:
+                    api_stats["total_calls"] += 1
+                    if model_index > 0:
+                        api_stats["fallback_count"] += 1
+                    api_stats["model_usage"][model_name] = api_stats["model_usage"].get(model_name, 0) + 1
+
                 return response
-            except Exception as e:
-                last_err = e
-                if "429" in str(e):
+            except Exception as exc:
+                last_error = exc
+                if "429" in str(exc):
                     wait_time = (attempt + 1) * 2 + random.uniform(1, 2)
                     await asyncio.sleep(wait_time)
                 else:
                     break
-                    
-    raise last_err
+
+    raise last_error
