@@ -1,10 +1,6 @@
-import os
-import json
-from langchain_groq import ChatGroq
 from langsmith import traceable
-from dotenv import load_dotenv
 
-load_dotenv()
+from agents.utils import parse_json_from_llm, safe_ainvoke
 
 PROSECUTOR_SYSTEM_PROMPT = """
 You are a sharp, aggressive prosecutor. Your sole goal is to build the strongest possible case AGAINST the defendant using retrieved evidence and legal precedents. Use formal legal language. Cite specific case names and statutes. Never concede ground.
@@ -15,8 +11,6 @@ Your response must be a JSON object with the following keys:
 - confidence_score: float (0.0 to 1.0, self-assessed)
 - legal_strategy: str (one of: "circumstantial", "statutory", "precedent-based", "forensic", "character")
 """
-
-from agents.utils import parse_json_from_llm, safe_ainvoke
 
 @traceable
 async def prosecution_agent(state: dict):
@@ -38,6 +32,14 @@ async def prosecution_agent(state: dict):
         response = await safe_ainvoke(messages, temperature=0.2)
         result = parse_json_from_llm(response.content)
         return {"prosecution_argument": result}
-    except Exception as e:
-        print(f"Error in Prosecution Agent: {e}\nResponse was: {response.content if 'response' in locals() else 'None'}")
-        return {"prosecution_argument": {"argument_text": "Error generating argument. The model may have returned invalid formatting.", "cited_sources": [], "confidence_score": 0.0, "legal_strategy": "N/A"}}
+    except Exception as exc:
+        response_content = getattr(locals().get("response", None), "content", "None")
+        print(f"Error in Prosecution Agent: {exc}\nResponse was: {response_content}")
+        return {
+            "prosecution_argument": {
+                "argument_text": "Error generating argument. The model may have returned invalid formatting.",
+                "cited_sources": [],
+                "confidence_score": 0.0,
+                "legal_strategy": "N/A",
+            }
+        }

@@ -1,13 +1,8 @@
-import os
-import json
 import asyncio
-from langchain_groq import ChatGroq
 from langsmith import traceable
 from tools.web_search import web_search
-from tools.case_law_parser import extract_citations
-from dotenv import load_dotenv
+from agents.utils import parse_json_from_llm, safe_ainvoke
 
-load_dotenv()
 
 JUDGE_SYSTEM_PROMPT = """
 You are an impartial, highly experienced federal judge. Evaluate both the prosecution/plaintiff and defense arguments on legal merit, evidentiary support, and logical consistency. 
@@ -65,16 +60,27 @@ async def judge_agent(state: dict):
         for c in defense.get('cited_sources', []):
             citations_to_verify.append(verify_citation(c, "defense"))
             
-        verification_results = await asyncio.gather(*citations_to_verify)
+verification_results = await asyncio.gather(*citations_to_verify) if citations_to_verify else []
         hallucination_flags = [v for v in verification_results if v is not None]
         
         return {
             "judge_scores": result,
             "hallucination_flags": hallucination_flags
         }
-    except Exception as e:
-        print(f"Error in Judge Agent: {e}")
+    except Exception as exc:
+        print(f"Error in Judge Agent: {exc}")
         return {
-            "judge_scores": {"prosecution_scores": {}, "defense_scores": {}, "preliminary_ruling": "N/A", "reasoning_summary": "Evaluation failed."},
-            "hallucination_flags": [{"side": "System", "citation": "N/A", "reason": f"Evaluation parsing failed: {str(e)}"}]
+            "judge_scores": {
+                "prosecution_scores": {},
+                "defense_scores": {},
+                "preliminary_ruling": "N/A",
+                "reasoning_summary": "Evaluation failed.",
+            },
+            "hallucination_flags": [
+                {
+                    "side": "System",
+                    "citation": "N/A",
+                    "reason": f"Evaluation parsing failed: {str(exc)}",
+                }
+            ],
         }

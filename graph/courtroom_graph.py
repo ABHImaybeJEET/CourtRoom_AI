@@ -1,13 +1,10 @@
-import functools
-from typing import TypedDict, Annotated, Sequence
-import operator
+from typing import TypedDict
 from langgraph.graph import StateGraph, END, START
 from agents.prosecutor import prosecution_agent
 from agents.defense import defense_agent
 from agents.judge import judge_agent
 from agents.jury_simulator import jury_simulator_node
 from rag.retriever import retrieve_context
-from tools.web_search import web_search
 
 class CourtRoomState(TypedDict):
     case_description: str

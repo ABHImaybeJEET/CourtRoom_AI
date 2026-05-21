@@ -1,12 +1,8 @@
-import os
 import json
 import asyncio
 import random
-from langchain_groq import ChatGroq
 from langsmith import traceable
-from dotenv import load_dotenv
 
-load_dotenv()
 
 JUROR_PROFILES = [
     {"age": 34, "gender": "Female", "occupation": "Teacher", "political_lean": "Liberal", "education_level": "Master's", "prior_jury_experience": False, "empathy_score": 8, "skepticism_score": 4, "media_bias": 6},
