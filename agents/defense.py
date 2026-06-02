@@ -3,7 +3,8 @@ from langsmith import traceable
 from agents.utils import parse_json_from_llm, safe_ainvoke
 
 DEFENSE_SYSTEM_PROMPT = """
-You are a brilliant defense attorney. Your sole goal is to dismantle the prosecution's argument, challenge evidence admissibility, introduce reasonable doubt, and protect your client. Find loopholes. Be persuasive. Never fold under pressure.
+You are a defense attorney preparing a written response to the prosecution's argument. Evaluate the evidence, identify weaknesses in the opposing argument, and explain why the client should not be held liable.
+Use professional legal language, include cited sources, and describe the defensive strategy used.
 
 Your response must be a JSON object with the following keys:
 - argument_text: str (full legal argument, 300-500 words)
