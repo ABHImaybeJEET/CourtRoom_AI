@@ -1,10 +1,10 @@
 <div align="center">
   <img src="https://img.icons8.com/color/124/000000/law.png" alt="Courtroom Icon">
   <h1>⚖️ CourtRoom AI</h1>
-  <h3>A Multi-Agent Adversarial Legal Intelligence System</h3>
+  <h3>Legal argument simulation with evidence review</h3>
 
   <p align="center">
-    <b>Powered by LangGraph, Groq Llama-3, Tavily Search, & FAISS Vector Search</b>
+    <b>Powered by LangGraph, Tavily Search, & FAISS Vector Search</b>
     <br/>
     <a href="#about">About</a> &bull;
     <a href="#features">Features</a> &bull;
@@ -17,43 +17,40 @@
 ---
 
 ## 🏛️ About
-**CourtRoom AI** is an advanced, fully agentic RAG (Retrieval-Augmented Generation) platform that authentically simulates a legal trial courtroom.
+**CourtRoom AI** is a legal simulation platform designed to model prosecution and defense argument generation, evidence retrieval, and citation review.
 
-By supplying a case scenario (or uploading real legal documents), the system spins up multiple autonomous AI lawyers that research the topic, retrieve legal precedents, build comprehensive arguments, and actively debate one another. An AI Federal Judge evaluates the legal merit and fact-checks citations for hallucinations, before sending the case to a **Simulated 12-Person Jury**, each possessing a unique demographic profile, political lean, and background.
+By supplying a case scenario or uploading supporting documents, the system uses retrieval-augmented text analysis to produce structured arguments, compare them, and summarize a mock jury outcome. A judge review step checks argument strength and citation reliability before the jury summary is produced.
 
-It serves as a powerful sandbox for predictive litigation strategy, case law stress-testing, and exploring the capabilities of adversarial multi-agent orchestration.
+This tool is intended for testing legal reasoning workflows and reviewing how evidence and legal precedent can be assembled in a structured format.
 
 ---
 
 ## 🔥 Features
-- 🎭 **Adversarial Multi-Agent Flow:** Dynamic debate architecture. The Prosecution builds a case, and the Defense dismantles it contextually using state-machine memory tracking.
-- 🗂️ **Dynamic Document Ingestion (RAG):** Upload actual trial PDFs or evidence documents. The system uses `sentence-transformers` and `FAISS` to parse, split, and embed documents for on-demand retrieval by the agents.
-- 👁️ **Hallucination Detection Network:** The core problem with AI in law is fabricated citations. The Judge Agent autonomously uses the **Tavily API** to verify every single case law cited by the lawyers in real-time, flagging fabricated precedents.
-- 👥 **Jury Psychology Simulation:** The final verdict isn't just an LLM guess. It spins up 12 entirely distinct parallel AI instances representing unique citizens (with varying ages, occupations, empathy scores, and media biases) who vote independently and provide emotional/demographic reasoning.
-- 🛡️ **Highly Resilient Auto-Failover Protocol:** API limits hit? The system is designed for production reliability. Custom LLM wrappers intelligently default from Groq's heavy `llama-3.3-70b-versatile` down to `llama-3.1-8b-instant`, and even further down to `mixtral-8x7b-32768` instantly without crashing if rate limits are exceeded.
-- 📑 **Formal Trial Transcript Exports:** Compiles the entire session (arguments, scores, final tally) out to a styled, paginated PDF format utilizing `ReportLab Platypus`.
+- 🎯 **Structured Legal Roles:** Separate prosecution, defense, judge review, and jury summary stages for clearer workflow analysis.
+- 🗂️ **Document Retrieval:** Upload PDFs or enter case text. The system converts content into searchable chunks and uses FAISS for relevant context retrieval.
+- 🔎 **Citation and Evidence Review:** A judge review step checks argument coherence and citation reliability using external search results.
+- 👥 **Jury Summary:** Generates a jury outcome with individual verdicts and reasoning based on a mix of juror profiles.
+- 📑 **Transcript Export:** Produces a downloadable PDF summary of the case, arguments, judge findings, and jury results.
 
 ---
 
 ## 🛠️ Architecture
 
-Built on the cutting edge of the Agentic AI stack:
+System architecture:
 * **Orchestration:** `LangGraph` and `LangChain`
-* **Models:** Groq Hardware (Llama 3 Sequence)
-* **Search / External Tools:** `Tavily` Search API
+* **External Search:** `Tavily` Search API
 * **Vector Store:** `FAISS-CPU` + MiniLM Embeddings
 * **User Interface:** `Streamlit`
 
 ```mermaid
 graph TD;
     Input[User Case / PDFs] --> RAG[FAISS Retrieval Pipeline]
-    RAG --> Prosecution(Prosecutor Agent)
-    Prosecution --> Defense(Defense Agent)
+    RAG --> Prosecution(Prosecutor)
+    Prosecution --> Defense(Defense)
     Defense --> WebSearch{Tavily Fact Check}
-    WebSearch --> Judge(Judge Agent)
-    Judge -- "Conditional Node (If rounds remain)" --> Prosecution
-    Judge -- "Proceed to Trial" --> Jury[12x Parallel Jury Simulation]
-    Jury --> Verdict[Final Verdict & Demographic Analytics]
+    WebSearch --> Judge(Judge Review)
+    Judge --> Jury[Jury Summary]
+    Jury --> Verdict[Final Verdict & Demographic Summary]
 ```
 
 ---
@@ -116,5 +113,5 @@ Once the run completes, download your generated **PDF Trial Transcript** straigh
 ---
 
 <p align="center">
-  <i>Developed for exploring the boundaries of Legal AI and Multi-Agent interactions. Not intended for actual legal advice or judicial replacement.</i>
+  <i>Developed as a legal reasoning and review tool. Not intended for actual legal advice or judicial replacement.</i>
 </p>
