@@ -1,8 +1,6 @@
 import json
 import asyncio
-import random
 from langsmith import traceable
-
 
 JUROR_PROFILES = [
     {"age": 34, "gender": "Female", "occupation": "Teacher", "political_lean": "Liberal", "education_level": "Master's", "prior_jury_experience": False, "empathy_score": 8, "skepticism_score": 4, "media_bias": 6},
@@ -21,57 +19,54 @@ JUROR_PROFILES = [
 
 from agents.utils import parse_json_from_llm, safe_ainvoke
 
-@traceable
-async def run_single_juror(n, profile, prosecution, defense, judge_summary, judge_scores, case_desc):
-    system_prompt = f"""
-    You are Juror #{n}. Profile: Age {profile['age']}, {profile['occupation']}, Bias: {profile['political_lean']}, Empathy: {profile['empathy_score']}/10, Skepticism: {profile['skepticism_score']}/10. 
-    You are sitting on a jury. Review the case facts, the prosecution's arguments, and the defense's arguments carefully.
-    Apply the standard of "beyond a reasonable doubt" (for criminal) or "preponderance of the evidence" (for civil) implicitly based on the case context.
-    Render a personal verdict based purely on how the arguments and evidence interact with your specific worldview, biases, and professional background.
-    
-    CRITICAL: Provide exactly 2-3 robust sentences explaining your logical reasoning, tying it explicitly to your profile. Do not be vague.
 
-    Return JSON:
+async def run_jury_panel(prosecution, defense, judge_summary, judge_scores, case_desc, profiles):
+    system_prompt = f"""
+    You are responsible for generating a jury verdict summary for a panel of jurors.
+    Review the case description, the prosecution's final argument, the defense's final argument, and the judge's scoring summary.
+    There are {len(profiles)} jurors, each with a detailed profile. For each juror, provide a JSON object with:
+    - juror_id: int
     - verdict: "Guilty" | "Not Guilty" | "Liable" | "Not Liable"
-    - confidence: float 0.0-1.0 (how sure are you of this verdict)
-    - reasoning: 2-3 substantive sentences.
+    - confidence: float between 0.0 and 1.0
+    - reasoning: 2-3 sentences relating the verdict back to the juror's profile
     - swayed_by: "prosecution" | "defense" | "neither"
+
+    Return a JSON object with one key: "jury_verdicts" containing the list of juror objects.
     """
-    
+
     human_prompt = f"""
     Case Description: {case_desc}
-    
-    Prosecution's Final Argument: {prosecution}
-    
-    Defense's Final Argument: {defense}
-    
-    Judge's Scoring & Summary: {judge_summary}
-    Judge's Scores: {json.dumps(judge_scores)}
-    
-    What is your verdict? Remember to answer in JSON.
+
+    Prosecution Argument: {prosecution}
+
+    Defense Argument: {defense}
+
+    Judge Summary: {judge_summary}
+    Judge Scores: {json.dumps(judge_scores)}
+
+    Juror Profiles: {json.dumps(profiles)}
+
+    Provide the jury verdicts in strict JSON.
     """
-    
+
     messages = [
         ("system", system_prompt),
         ("human", human_prompt)
     ]
-    
-    try:
-        response = await safe_ainvoke(messages, temperature=0.9)
-        result = parse_json_from_llm(response.content)
-        result['juror_id'] = n
-        result['profile'] = profile
+
+    response = await safe_ainvoke(
+        messages,
+        temperature=0.8,
+        model_names=["llama-3.1-8b-instant", "gemma2-9b-it", "mixtral-8x7b-32768"],
+    )
+
+    result = parse_json_from_llm(response.content)
+    if isinstance(result, dict) and "jury_verdicts" in result:
+        return result["jury_verdicts"]
+    if isinstance(result, list):
         return result
-    except Exception as e:
-        print(f"Error for Juror {n}: {e}")
-        return {
-            "juror_id": n,
-            "profile": profile,
-            "verdict": "Not Guilty", # Default on error
-            "confidence": 0.5,
-            "reasoning": "I am unsure due to conflicting or poorly formatted information.",
-            "swayed_by": "neither"
-        }
+    raise ValueError("Invalid jury panel response format")
+
 
 @traceable
 async def jury_simulator_node(state: dict):
@@ -80,40 +75,43 @@ async def jury_simulator_node(state: dict):
     judge_summary = state.get('judge_scores', {}).get('reasoning_summary', "")
     judge_scores = state.get('judge_scores', {})
     case_desc = state.get('case_description', '')
-    
-    # Use a semaphore to limit concurrency. 
-    # Calling 12 LLM instances at once often triggers hard rate limits.
-    # Processing 3 at a time is much safer and more reliable.
-    sem = asyncio.Semaphore(3)
-    
-    async def safe_run_juror(n, profile, p, d, js, jsc, cd):
-        async with sem:
-            return await run_single_juror(n, profile, p, d, js, jsc, cd)
+    profiles = JUROR_PROFILES[:6] if state.get('fast_mode') else JUROR_PROFILES
 
-    tasks = []
-    for i, profile in enumerate(JUROR_PROFILES):
-        tasks.append(safe_run_juror(i+1, profile, prosecution, defense, judge_summary, judge_scores, case_desc))
-        
-    verdicts = await asyncio.gather(*tasks)
-    
-    guilty_count = sum(1 for v in verdicts if v['verdict'] in ["Guilty", "Liable"])
-    not_guilty_count = sum(1 for v in verdicts if v['verdict'] in ["Not Guilty", "Not Liable"])
-    
+    try:
+        verdicts = await run_jury_panel(prosecution, defense, judge_summary, judge_scores, case_desc, profiles)
+    except Exception as exc:
+        print(f"Jury panel fallback due to: {exc}")
+        sem = asyncio.Semaphore(3)
+
+        async def safe_run_juror(n, profile, p, d, js, jsc, cd):
+            async with sem:
+                return await run_single_juror(n, profile, p, d, js, jsc, cd)
+
+        tasks = []
+        for i, profile in enumerate(profiles):
+            tasks.append(safe_run_juror(i + 1, profile, prosecution, defense, judge_summary, judge_scores, case_desc))
+        verdicts = await asyncio.gather(*tasks)
+
+    guilty_count = sum(1 for v in verdicts if v.get('verdict') in ["Guilty", "Liable"])
+    not_guilty_count = sum(1 for v in verdicts if v.get('verdict') in ["Not Guilty", "Not Liable"])
+
     final_verdict = "Hung Jury"
     if guilty_count > not_guilty_count:
         final_verdict = "Guilty / Liable"
     elif not_guilty_count > guilty_count:
         final_verdict = "Not Guilty / Not Liable"
-        
-    # Simple demographic analysis (Internal logic or another LLM call)
-    # Let's use a quick LLM call for analysis
+
     analysis_prompt = f"Analyze these jury verdicts and explain which demographic segments voted which way and why based on their profiles: {json.dumps(verdicts)}"
     try:
-        analysis_response = await safe_ainvoke([("system", "You are a legal demographic analyst."), ("human", analysis_prompt)], temperature=0.3)
+        analysis_response = await safe_ainvoke(
+            [("system", "You are a legal demographic analyst."), ("human", analysis_prompt)],
+            temperature=0.3,
+            model_names=["llama-3.1-8b-instant", "gemma2-9b-it"],
+        )
         analysis_content = analysis_response.content
     except Exception as e:
         analysis_content = f"Demographic analysis unavailable due to API rate limits: {e}"
-    
+
     return {
         "jury_verdicts": verdicts,
         "vote_count": {"guilty": guilty_count, "not_guilty": not_guilty_count},
