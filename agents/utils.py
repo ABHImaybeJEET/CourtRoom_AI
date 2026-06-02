@@ -41,22 +41,28 @@ def _get_streamlit_api_stats() -> dict[str, Any] | None:
     return st.session_state.api_stats
 
 
-async def safe_ainvoke(messages: list[tuple[str, str]], temperature: float = 0.2):
+async def safe_ainvoke(
+    messages: list[tuple[str, str]],
+    temperature: float = 0.2,
+    model_names: list[str] | None = None,
+    max_retries: int = 2,
+):
     from langchain_groq import ChatGroq
     import random
 
     api_stats = _get_streamlit_api_stats()
-    models = [
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
-        "mixtral-8x7b-32768",
-        "gemma2-9b-it",
-        "llama3-8b-8192",
-    ]
+    if model_names is None:
+        model_names = [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "mixtral-8x7b-32768",
+            "gemma2-9b-it",
+            "llama3-8b-8192",
+        ]
 
     last_error = None
-    for model_index, model_name in enumerate(models):
-        for attempt in range(2):
+    for model_index, model_name in enumerate(model_names):
+        for attempt in range(max_retries):
             try:
                 llm = ChatGroq(model_name=model_name, temperature=temperature)
                 await asyncio.sleep(random.uniform(0.1, 0.4))
@@ -71,10 +77,11 @@ async def safe_ainvoke(messages: list[tuple[str, str]], temperature: float = 0.2
                 return response
             except Exception as exc:
                 last_error = exc
-                if "429" in str(exc):
-                    wait_time = (attempt + 1) * 2 + random.uniform(1, 2)
+                message = str(exc).lower()
+                if "429" in message or "rate limit" in message:
+                    wait_time = (attempt + 1) * 1.5 + random.uniform(0.5, 1.0)
                     await asyncio.sleep(wait_time)
-                else:
-                    break
+                    continue
+                break
 
     raise last_error
