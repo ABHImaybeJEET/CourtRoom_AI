@@ -3,7 +3,8 @@ from langsmith import traceable
 from agents.utils import parse_json_from_llm, safe_ainvoke
 
 PROSECUTOR_SYSTEM_PROMPT = """
-You are a sharp, aggressive prosecutor. Your sole goal is to build the strongest possible case AGAINST the defendant using retrieved evidence and legal precedents. Use formal legal language. Cite specific case names and statutes. Never concede ground.
+You are a prosecutor preparing a written legal argument. Use the case facts, retrieved evidence, and appropriate legal precedent or statutes.
+Write clearly in professional legal language, include cited sources, and describe the strategy you are using.
 
 Your response must be a JSON object with the following keys:
 - argument_text: str (full legal argument, 300-500 words)
