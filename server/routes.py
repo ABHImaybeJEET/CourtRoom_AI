@@ -3,12 +3,17 @@ import json
 import asyncio
 from pathlib import Path
 from typing import AsyncGenerator
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, status
 from fastapi.responses import StreamingResponse, JSONResponse, Response
 from server.trial_manager import manager
 from server.transcript import build_trial_pdf
 
 router = APIRouter(prefix="/api")
+
+ALLOWED_EXTENSIONS = {".pdf", ".txt"}
+MAX_FILE_SIZE = 15 * 1024 * 1024  # 15 MB
+MIN_CASE_DESC_LEN = 20
+MAX_CASE_DESC_LEN = 100_000
 
 SAMPLE_CASES = {
     "insider_trading": {
@@ -40,9 +45,10 @@ SAMPLE_CASES = {
 
 @router.get("/health")
 async def health_check():
-    groq_configured = bool(os.getenv("GROQ_API_KEY"))
-    tavily_configured = bool(os.getenv("TAVILY_API_KEY"))
-    langsmith_configured = bool(os.getenv("LANGCHAIN_API_KEY"))
+    """Health status and configuration validation for model and search providers."""
+    groq_configured = bool(os.getenv("GROQ_API_KEY", "").strip())
+    tavily_configured = bool(os.getenv("TAVILY_API_KEY", "").strip())
+    langsmith_configured = bool(os.getenv("LANGCHAIN_API_KEY", "").strip())
 
     return {
         "status": "online",
@@ -57,6 +63,7 @@ async def health_check():
 
 @router.get("/cases/samples")
 async def get_sample_cases():
+    """Retrieve list of pre-configured benchmark case briefs."""
     results = []
     for case_id, info in SAMPLE_CASES.items():
         content = ""
@@ -74,81 +81,176 @@ async def get_sample_cases():
 
 @router.get("/cases/cached")
 async def get_cached_cases():
-    cached = [
+    """Retrieve pre-recorded demo simulations available for instant playback."""
+    return [
         {"id": "insider_trading.json", "name": "Insider Trading (Instant Demo)"},
         {"id": "india_fraud.json", "name": "Satyam Scam (Instant Demo)"},
     ]
-    return cached
 
 
 @router.post("/cases/load-cached/{filename}")
 async def load_cached_simulation(filename: str):
-    trial_data = manager.load_cached_trial(filename)
+    """Load an instant benchmark trial playback from disk cache."""
+    # Validate filename to prevent path traversal
+    safe_name = Path(filename).name
+    if not safe_name.endswith(".json"):
+        raise HTTPException(status_code=400, detail="Invalid cache file format.")
+
+    trial_data = manager.load_cached_trial(safe_name)
     if not trial_data:
-        raise HTTPException(status_code=404, detail="Cached case not found")
+        raise HTTPException(status_code=404, detail=f"Cached simulation '{safe_name}' not found.")
     return {"trial_id": trial_data["trial_id"], "state": trial_data}
 
 
-@router.post("/trials")
+@router.post("/trials", status_code=status.HTTP_201_CREATED)
 async def create_trial_endpoint(
     background_tasks: BackgroundTasks,
     case_description: str = Form(...),
     max_rounds: int = Form(2),
     fast_mode: bool = Form(False),
+    auto_start: bool = Form(True),
     files: list[UploadFile] = File(default=[]),
 ):
-    saved_paths = []
-    upload_dir = Path("data/uploads")
+    """
+    Create a new legal trial simulation from case text and optional uploaded PDF evidence.
+    Performs comprehensive input validation and file checking.
+    """
+    clean_desc = case_description.strip()
+    if len(clean_desc) < MIN_CASE_DESC_LEN:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Case description must contain at least {MIN_CASE_DESC_LEN} characters.",
+        )
+    if len(clean_desc) > MAX_CASE_DESC_LEN:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Case description exceeds maximum allowed length of {MAX_CASE_DESC_LEN:,} characters.",
+        )
+
+    if max_rounds < 1 or max_rounds > 5:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Argument rounds must be an integer between 1 and 5.",
+        )
+
+    # Validate uploaded files
+    saved_paths: list[str] = []
+    temp_id = f"prep-{Path(os.urandom(4).hex()).name}"
+    upload_dir = Path(f"data/sessions/{temp_id}/uploads")
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     for upload in files:
-        if upload.filename:
-            safe_name = Path(upload.filename).name
-            target_file = upload_dir / safe_name
-            content = await upload.read()
-            target_file.write_bytes(content)
-            saved_paths.append(str(target_file))
+        if not upload.filename:
+            continue
+        safe_name = Path(upload.filename).name
+        ext = Path(safe_name).suffix.lower()
+
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File '{safe_name}' has an unsupported extension '{ext}'. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
+            )
+
+        content = await upload.read()
+        if len(content) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Uploaded file '{safe_name}' is empty (0 bytes).",
+            )
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File '{safe_name}' ({len(content)/(1024*1024):.1f}MB) exceeds the 15MB size limit.",
+            )
+
+        target_file = upload_dir / safe_name
+        target_file.write_bytes(content)
+        saved_paths.append(str(target_file))
 
     trial_id = manager.create_trial(
-        case_description=case_description,
+        case_description=clean_desc,
         max_rounds=max_rounds,
         fast_mode=fast_mode,
         file_paths=saved_paths,
     )
 
-    # Launch pipeline in background task
-    background_tasks.add_task(manager.run_trial_pipeline, trial_id)
+    if auto_start:
+        background_tasks.add_task(manager.run_trial_pipeline, trial_id)
 
     return {
         "trial_id": trial_id,
-        "status": "pending",
+        "status": "running" if auto_start else "ready",
         "stream_url": f"/api/trials/{trial_id}/stream",
+        "status_url": f"/api/trials/{trial_id}/status",
+        "stages_url": f"/api/trials/{trial_id}/stages",
     }
 
 
-@router.get("/trials/{trial_id}")
-async def get_trial_state(trial_id: str):
-    if trial_id not in manager.trials:
+@router.post("/trials/{trial_id}/start")
+async def start_trial_run(trial_id: str, background_tasks: BackgroundTasks):
+    """Explicitly start execution of a created trial."""
+    trial = manager.get_trial(trial_id)
+    if not trial:
         raise HTTPException(status_code=404, detail="Trial not found")
-    return manager.trials[trial_id]
+
+    if trial["status"] == "running":
+        return {"trial_id": trial_id, "status": "running", "message": "Trial is already in progress."}
+
+    if trial["status"] == "completed":
+        raise HTTPException(status_code=400, detail="Trial has already concluded.")
+
+    background_tasks.add_task(manager.run_trial_pipeline, trial_id)
+    return {"trial_id": trial_id, "status": "running", "message": "Trial started successfully."}
+
+
+@router.get("/trials/{trial_id}/status")
+async def get_trial_monitoring_status(trial_id: str):
+    """Retrieve lightweight status and telemetry for monitoring a trial run."""
+    status_info = manager.get_trial_status(trial_id)
+    if not status_info:
+        raise HTTPException(status_code=404, detail="Trial not found")
+    return status_info
+
+
+@router.get("/trials/{trial_id}/stages")
+async def get_trial_stage_outputs(trial_id: str):
+    """Retrieve structured outputs across all trial stages."""
+    stages_info = manager.get_trial_stages(trial_id)
+    if not stages_info:
+        raise HTTPException(status_code=404, detail="Trial not found")
+    return stages_info
+
+
+@router.get("/trials/{trial_id}")
+async def get_full_trial(trial_id: str):
+    """Retrieve complete trial record and state."""
+    trial = manager.get_trial(trial_id)
+    if not trial:
+        raise HTTPException(status_code=404, detail="Trial not found")
+    return trial
 
 
 @router.get("/trials/{trial_id}/stream")
 async def stream_trial_events(trial_id: str):
-    if trial_id not in manager.trials:
+    """Server-Sent Events (SSE) stream delivering real-time deliberation events."""
+    trial = manager.get_trial(trial_id)
+    if not trial:
         raise HTTPException(status_code=404, detail="Trial not found")
 
     q = manager.register_queue(trial_id)
 
     async def event_generator() -> AsyncGenerator[str, None]:
-        # Send initial status
-        current_status = manager.trials[trial_id]["status"]
-        yield f"event: ping\ndata: {json.dumps({'trial_id': trial_id, 'status': current_status})}\n\n"
+        current_status = trial["status"]
+        yield f"event: ping\ndata: {json.dumps({'trial_id': trial_id, 'status': current_status, 'stage': trial['current_stage']})}\n\n"
 
-        # If already completed or failed, send final event immediately
         if current_status == "completed":
-            final_state = manager.trials[trial_id]["state"]
+            final_state = trial["state"]
             yield f"event: trial_completed\ndata: {json.dumps({'stage': 'CONCLUDED', 'final_verdict': final_state.get('final_verdict'), 'state': final_state})}\n\n"
+            manager.remove_queue(trial_id, q)
+            return
+
+        if current_status == "failed":
+            yield f"event: error\ndata: {json.dumps({'stage': trial['current_stage'], 'message': trial['error']})}\n\n"
             manager.remove_queue(trial_id, q)
             return
 
@@ -177,13 +279,25 @@ async def stream_trial_events(trial_id: str):
 
 @router.get("/trials/{trial_id}/export/pdf")
 async def export_trial_pdf(trial_id: str):
-    if trial_id not in manager.trials:
+    """Download certified PDF trial transcript. Rejects incomplete or failed runs."""
+    trial = manager.get_trial(trial_id)
+    if not trial:
         raise HTTPException(status_code=404, detail="Trial not found")
 
-    trial = manager.trials[trial_id]
+    if trial["status"] == "failed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot export transcript for a failed trial. Error: {trial.get('error')}",
+        )
+
+    if trial["status"] != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Trial is not yet concluded (current status: {trial['status']}).",
+        )
+
     state = trial["state"]
     pdf_buffer = build_trial_pdf(state)
-
     filename = f"CourtRoom_AI_Transcript_{trial_id}.pdf"
     return Response(
         content=pdf_buffer.getvalue(),
@@ -194,10 +308,23 @@ async def export_trial_pdf(trial_id: str):
 
 @router.get("/trials/{trial_id}/export/json")
 async def export_trial_json(trial_id: str):
-    if trial_id not in manager.trials:
+    """Download full trial state JSON. Rejects incomplete or failed runs."""
+    trial = manager.get_trial(trial_id)
+    if not trial:
         raise HTTPException(status_code=404, detail="Trial not found")
 
-    trial = manager.trials[trial_id]
+    if trial["status"] == "failed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot export transcript for a failed trial. Error: {trial.get('error')}",
+        )
+
+    if trial["status"] != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Trial is not yet concluded (current status: {trial['status']}).",
+        )
+
     filename = f"CourtRoom_AI_Transcript_{trial_id}.json"
     return JSONResponse(
         content=trial["state"],

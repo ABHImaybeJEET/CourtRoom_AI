@@ -1,7 +1,7 @@
 import json
 import asyncio
 from langsmith import traceable
-from agents.utils import parse_json_from_llm, safe_ainvoke
+from agents.utils import parse_json_from_llm, safe_ainvoke, AgentExecutionError
 
 JUROR_PROFILES = [
     {"age": 34, "gender": "Female", "occupation": "Teacher", "political_lean": "Liberal", "education_level": "Master's", "prior_jury_experience": False, "empathy_score": 8, "skepticism_score": 4, "media_bias": 6},
@@ -51,27 +51,17 @@ async def run_single_juror(
         ("system", "You are an individual juror in a criminal/civil trial simulation."),
         ("human", prompt.strip()),
     ]
-    try:
-        response = await safe_ainvoke(
-            messages,
-            temperature=0.7,
-            model_names=["llama-3.1-8b-instant", "llama-3.3-70b-versatile"],
-        )
-        parsed = parse_json_from_llm(response.content)
-        parsed["juror_id"] = juror_id
-        parsed["profile"] = profile
-        if parsed.get("verdict") not in ["Guilty", "Not Guilty", "Liable", "Not Liable"]:
-            parsed["verdict"] = "Not Guilty"
-        return parsed
-    except Exception as exc:
-        return {
-            "juror_id": juror_id,
-            "profile": profile,
-            "verdict": "Not Guilty",
-            "confidence": 0.5,
-            "reasoning": f"Deliberated with standard burden of proof (fallback: {exc}).",
-            "swayed_by": "neither",
-        }
+    response = await safe_ainvoke(
+        messages,
+        temperature=0.7,
+        model_names=["llama-3.1-8b-instant", "llama-3.3-70b-versatile"],
+    )
+    parsed = parse_json_from_llm(response.content)
+    parsed["juror_id"] = juror_id
+    parsed["profile"] = profile
+    if parsed.get("verdict") not in ["Guilty", "Not Guilty", "Liable", "Not Liable"]:
+        parsed["verdict"] = "Not Guilty"
+    return parsed
 
 
 async def run_jury_panel(prosecution, defense, judge_summary, judge_scores, case_desc, profiles):
@@ -126,7 +116,6 @@ async def run_jury_panel(prosecution, defense, judge_summary, judge_scores, case
     if not verdicts or not isinstance(verdicts, list):
         raise ValueError("Invalid jury panel response format")
 
-    # Attach profile data to each verdict entry
     for i, juror in enumerate(verdicts):
         if not isinstance(juror, dict):
             continue
@@ -153,17 +142,20 @@ async def jury_simulator_node(state: dict):
     try:
         verdicts = await run_jury_panel(prosecution, defense, judge_summary, judge_scores, case_desc, profiles)
     except Exception as exc:
-        print(f"Jury panel fallback due to: {exc}")
-        sem = asyncio.Semaphore(4)
+        print(f"Jury panel full-batch failed ({exc}), attempting individual juror deliberation...")
+        sem = asyncio.Semaphore(3)
 
         async def safe_run(n, profile):
             async with sem:
                 return await run_single_juror(n, profile, prosecution, defense, judge_summary, judge_scores, case_desc)
 
-        tasks = [safe_run(i + 1, profile) for i, profile in enumerate(profiles)]
-        verdicts = await asyncio.gather(*tasks)
+        try:
+            tasks = [safe_run(i + 1, profile) for i, profile in enumerate(profiles)]
+            verdicts = await asyncio.gather(*tasks)
+        except Exception as fallback_exc:
+            raise AgentExecutionError(f"Jury simulation deliberation completely failed: {fallback_exc}") from fallback_exc
 
-    # Re-verify profile is present in each verdict
+    # Ensure profile is present in each verdict
     for i, v in enumerate(verdicts):
         if "profile" not in v and i < len(profiles):
             v["profile"] = profiles[i]
@@ -192,7 +184,7 @@ async def jury_simulator_node(state: dict):
     except Exception as e:
         analysis_content = (
             f"Deliberation concluded with {guilty_count} Guilty votes and {not_guilty_count} Not Guilty votes. "
-            f"Detailed demographic breakdown unavailable: {e}"
+            f"Demographic explanation could not be generated: {e}"
         )
 
     return {

@@ -1,5 +1,5 @@
 from langsmith import traceable
-from agents.utils import parse_json_from_llm, safe_ainvoke
+from agents.utils import parse_json_from_llm, safe_ainvoke, AgentExecutionError
 
 DEFENSE_SYSTEM_PROMPT = """
 You are a senior defense attorney representing the accused or respondent in a formal courtroom proceeding.
@@ -63,15 +63,4 @@ async def defense_agent(state: dict) -> dict:
             raise ValueError("Parsed JSON does not contain 'argument_text'")
         return {"defense_argument": result}
     except Exception as exc:
-        print(f"Error in Defense Agent: {exc}")
-        return {
-            "defense_argument": {
-                "argument_text": (
-                    "The defense submits that the prosecution has utterly failed to satisfy its fundamental burden of proof. "
-                    "The accusations rely on speculative inferences, circumstantial conjecture, and lack of direct evidence."
-                ),
-                "cited_sources": ["Ernst & Ernst v. Hochfelder, 425 U.S. 185 (1976)", "Fed. R. Evid. 403"],
-                "confidence_score": 0.70,
-                "legal_strategy": "statutory",
-            }
-        }
+        raise AgentExecutionError(f"Defense Agent failed during {stage_name}: {exc}") from exc

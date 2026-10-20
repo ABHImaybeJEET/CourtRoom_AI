@@ -1,5 +1,5 @@
 from langsmith import traceable
-from agents.utils import parse_json_from_llm, safe_ainvoke
+from agents.utils import parse_json_from_llm, safe_ainvoke, AgentExecutionError
 
 PROSECUTOR_SYSTEM_PROMPT = """
 You are a lead prosecuting attorney representing the state or plaintiff in a formal legal proceeding.
@@ -58,15 +58,4 @@ async def prosecution_agent(state: dict) -> dict:
             raise ValueError("Parsed JSON does not contain 'argument_text'")
         return {"prosecution_argument": result}
     except Exception as exc:
-        print(f"Error in Prosecution Agent: {exc}")
-        return {
-            "prosecution_argument": {
-                "argument_text": (
-                    "The prosecution asserts that the evidence clearly establishes liability beyond reasonable doubt. "
-                    "The defendant's actions violated established legal duties and caused measurable harm."
-                ),
-                "cited_sources": ["Restatement (Second) of Torts § 281", "17 C.F.R. § 240.10b-5"],
-                "confidence_score": 0.75,
-                "legal_strategy": "statutory",
-            }
-        }
+        raise AgentExecutionError(f"Prosecution Agent failed during {stage_name}: {exc}") from exc

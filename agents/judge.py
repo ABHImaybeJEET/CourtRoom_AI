@@ -1,7 +1,7 @@
 import asyncio
 from langsmith import traceable
 from tools.web_search import web_search
-from agents.utils import parse_json_from_llm, safe_ainvoke
+from agents.utils import parse_json_from_llm, safe_ainvoke, AgentExecutionError
 
 JUDGE_SYSTEM_PROMPT = """
 You are a presiding judge reviewing both the prosecution's and defense's written arguments. Evaluate each argument on legal merit, the quality of evidence, precedent accuracy, and reasoning.
@@ -67,6 +67,10 @@ async def judge_agent(state: dict) -> dict:
         )
         result = parse_json_from_llm(response.content)
 
+        # Check required schema keys
+        if not isinstance(result, dict) or "prosecution_scores" not in result or "defense_scores" not in result:
+            raise ValueError("Judge evaluation JSON response is missing required scoring keys.")
+
         citation_side_map: dict[str, list[str]] = {}
         for c in prosecution.get("cited_sources", []):
             if isinstance(c, str) and c.strip():
@@ -89,23 +93,4 @@ async def judge_agent(state: dict) -> dict:
             "hallucination_flags": hallucination_flags,
         }
     except Exception as exc:
-        print(f"Error in Judge Agent: {exc}")
-        return {
-            "judge_scores": {
-                "prosecution_scores": {
-                    "legal_soundness": 5,
-                    "evidence_quality": 5,
-                    "logical_coherence": 5,
-                    "precedent_accuracy": 5,
-                },
-                "defense_scores": {
-                    "legal_soundness": 5,
-                    "evidence_quality": 5,
-                    "logical_coherence": 5,
-                    "precedent_accuracy": 5,
-                },
-                "preliminary_ruling": "too_close",
-                "reasoning_summary": f"Automated scoring encountered a transient parsing issue: {exc}",
-            },
-            "hallucination_flags": [],
-        }
+        raise AgentExecutionError(f"Judge Agent evaluation failed: {exc}") from exc

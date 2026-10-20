@@ -4,6 +4,17 @@ import asyncio
 import os
 from typing import Any
 
+
+class AgentExecutionError(RuntimeError):
+    """Raised when an agent fails to execute its legal reasoning or schema generation."""
+    pass
+
+
+class ModelProviderError(AgentExecutionError):
+    """Raised when an LLM provider call fails due to credentials, rate limits, or network timeouts."""
+    pass
+
+
 GLOBAL_API_STATS = {
     "total_calls": 0,
     "fallback_count": 0,
@@ -69,7 +80,15 @@ async def safe_ainvoke(
     temperature: float = 0.2,
     model_names: list[str] | None = None,
     max_retries: int = 2,
+    timeout_seconds: float = 45.0,
 ):
+    """Invoke Groq LLM with retries, fallback chain, and strict error reporting (no fake data)."""
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not api_key:
+        raise ModelProviderError(
+            "GROQ_API_KEY is not configured on the server. Please set GROQ_API_KEY in your environment or .env file."
+        )
+
     from langchain_groq import ChatGroq
     import random
 
@@ -80,7 +99,6 @@ async def safe_ainvoke(
             "llama-3.1-70b-versatile",
         ]
 
-    api_key = os.getenv("GROQ_API_KEY", "")
     last_error: Exception | None = None
 
     for model_index, model_name in enumerate(model_names):
@@ -89,12 +107,17 @@ async def safe_ainvoke(
                 llm = ChatGroq(
                     model_name=model_name,
                     temperature=temperature,
-                    api_key=api_key or None,
-                    timeout=45.0,
+                    api_key=api_key,
+                    timeout=timeout_seconds,
                     max_retries=1,
                 )
-                await asyncio.sleep(random.uniform(0.05, 0.2))
-                response = await llm.ainvoke(messages)
+                await asyncio.sleep(random.uniform(0.05, 0.15))
+                
+                # Wrap with asyncio timeout safeguard
+                response = await asyncio.wait_for(
+                    llm.ainvoke(messages),
+                    timeout=timeout_seconds,
+                )
 
                 GLOBAL_API_STATS["total_calls"] += 1
                 if model_index > 0:
@@ -104,23 +127,35 @@ async def safe_ainvoke(
                 )
 
                 return response
+            except asyncio.TimeoutError:
+                last_error = ModelProviderError(
+                    f"Model call to '{model_name}' timed out after {timeout_seconds}s (attempt {attempt + 1}/{max_retries})."
+                )
+                continue
             except Exception as exc:
                 last_error = exc
                 message = str(exc).lower()
-                # Rate limit retry
+
+                # Authentication / Invalid API key error
+                if "401" in message or "invalid_api_key" in message or "authentication" in message:
+                    raise ModelProviderError(f"Groq API authentication failed: {exc}") from exc
+
+                # Rate limit retry with backoff
                 if "429" in message or "rate limit" in message:
-                    wait_time = (attempt + 1) * 1.5 + random.uniform(0.5, 1.0)
+                    wait_time = (attempt + 1) * 2.0 + random.uniform(0.5, 1.5)
                     await asyncio.sleep(wait_time)
                     continue
-                # If model is not found or decommissioned, break immediately to next model
+
+                # Deprecated / Model not found -> immediately move to next model
                 if "404" in message or "not found" in message or "deprecated" in message:
                     break
-                # Other transient errors
+
+                # Transient network error
                 if attempt < max_retries - 1:
                     await asyncio.sleep(1.0)
                     continue
                 break
 
-    if last_error:
+    if isinstance(last_error, AgentExecutionError):
         raise last_error
-    raise RuntimeError("No model in the fallback chain succeeded.")
+    raise ModelProviderError(f"All model providers in the fallback chain failed. Last error: {last_error}")

@@ -155,7 +155,6 @@ cython_debug/
 .vscode/
 
 # Project specific
-test_api.py
 startup_errors.txt
 *.pdf
 chroma/

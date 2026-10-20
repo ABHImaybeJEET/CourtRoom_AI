@@ -1,7 +1,8 @@
 import asyncio
 import json
 import uuid
-from typing import AsyncGenerator, Any
+from datetime import datetime, timezone
+from typing import Any
 from graph.courtroom_graph import create_courtroom_graph, CourtRoomState
 from rag.ingestion import ingest_text, ingest_pdf
 
@@ -19,7 +20,8 @@ class TrialManager:
         file_paths: list[str] | None = None,
     ) -> str:
         trial_id = f"trial-{uuid.uuid4().hex[:10]}"
-        
+        now_iso = datetime.now(timezone.utc).isoformat()
+
         # Ingest text or documents under this trial's isolated session
         if file_paths:
             for p in file_paths:
@@ -46,17 +48,82 @@ class TrialManager:
             "vote_count": {"guilty": 0, "not_guilty": 0},
             "demographic_analysis": "",
             "fast_mode": fast_mode,
-            "status": "initialized",
+            "status": "ready",
         }
 
         self.trials[trial_id] = {
             "id": trial_id,
             "state": initial_state,
-            "status": "pending",
+            "status": "ready",
+            "current_stage": "INITIALIZATION",
+            "created_at": now_iso,
+            "started_at": None,
+            "completed_at": None,
             "error": None,
         }
         self.event_queues[trial_id] = []
         return trial_id
+
+    def get_trial(self, trial_id: str) -> dict[str, Any] | None:
+        return self.trials.get(trial_id)
+
+    def get_trial_status(self, trial_id: str) -> dict[str, Any] | None:
+        trial = self.trials.get(trial_id)
+        if not trial:
+            return None
+        state = trial["state"]
+        return {
+            "trial_id": trial_id,
+            "status": trial["status"],
+            "current_stage": trial["current_stage"],
+            "round_number": state.get("round_number", 0) + 1,
+            "max_rounds": state.get("max_rounds", 2),
+            "created_at": trial["created_at"],
+            "started_at": trial["started_at"],
+            "completed_at": trial["completed_at"],
+            "error": trial["error"],
+            "has_verdict": bool(state.get("final_verdict")),
+        }
+
+    def get_trial_stages(self, trial_id: str) -> dict[str, Any] | None:
+        trial = self.trials.get(trial_id)
+        if not trial:
+            return None
+        state = trial["state"]
+        return {
+            "trial_id": trial_id,
+            "status": trial["status"],
+            "current_stage": trial["current_stage"],
+            "intake": {
+                "case_description": state.get("case_description", ""),
+                "documents": state.get("case_documents", []),
+                "max_rounds": state.get("max_rounds", 2),
+                "fast_mode": state.get("fast_mode", False),
+            },
+            "evidence": {
+                "retrieved_context": state.get("retrieved_context", ""),
+                "web_search_results": state.get("web_search_results", ""),
+            },
+            "arguments": {
+                "current_prosecution": state.get("prosecution_argument", {}),
+                "current_defense": state.get("defense_argument", {}),
+                "debate_history": state.get("debate_history", []),
+            },
+            "judicial_review": {
+                "scores": state.get("judge_scores", {}),
+                "hallucination_flags": state.get("hallucination_flags", []),
+            },
+            "jury": {
+                "profiles": state.get("jury_profiles", []),
+                "verdicts": state.get("jury_verdicts", []),
+                "vote_count": state.get("vote_count", {"guilty": 0, "not_guilty": 0}),
+                "demographic_analysis": state.get("demographic_analysis", ""),
+            },
+            "verdict": {
+                "final_verdict": state.get("final_verdict", ""),
+            },
+            "error": trial["error"],
+        }
 
     def register_queue(self, trial_id: str) -> asyncio.Queue:
         q: asyncio.Queue = asyncio.Queue()
@@ -81,8 +148,13 @@ class TrialManager:
             return
 
         trial_info = self.trials[trial_id]
+        if trial_info["status"] == "running":
+            return
+
         state = trial_info["state"]
         trial_info["status"] = "running"
+        trial_info["started_at"] = datetime.now(timezone.utc).isoformat()
+        trial_info["current_stage"] = "INITIALIZATION"
 
         await self.broadcast(
             trial_id,
@@ -100,6 +172,7 @@ class TrialManager:
                     state.update(node_update)
 
                     if node_name == "retrieve_context":
+                        trial_info["current_stage"] = "EVIDENCE_RETRIEVAL"
                         await self.broadcast(
                             trial_id,
                             "context_retrieved",
@@ -110,6 +183,7 @@ class TrialManager:
                         )
 
                     elif node_name == "web_search_node":
+                        trial_info["current_stage"] = "EVIDENCE_RETRIEVAL"
                         await self.broadcast(
                             trial_id,
                             "web_search_completed",
@@ -120,6 +194,7 @@ class TrialManager:
                         )
 
                     elif node_name == "prosecution_round":
+                        trial_info["current_stage"] = "PROSECUTION_ARGUMENT"
                         await self.broadcast(
                             trial_id,
                             "prosecution_argument",
@@ -131,6 +206,7 @@ class TrialManager:
                         )
 
                     elif node_name == "defense_round":
+                        trial_info["current_stage"] = "DEFENSE_ARGUMENT"
                         await self.broadcast(
                             trial_id,
                             "defense_argument",
@@ -142,6 +218,7 @@ class TrialManager:
                         )
 
                     elif node_name == "judge_evaluation":
+                        trial_info["current_stage"] = "JUDICIAL_REVIEW"
                         await self.broadcast(
                             trial_id,
                             "judge_evaluation",
@@ -153,6 +230,7 @@ class TrialManager:
                         )
 
                     elif node_name == "increment_round":
+                        trial_info["current_stage"] = "ROUND_ADVANCEMENT"
                         await self.broadcast(
                             trial_id,
                             "round_advanced",
@@ -163,6 +241,7 @@ class TrialManager:
                         )
 
                     elif node_name == "jury_simulation":
+                        trial_info["current_stage"] = "JURY_DELIBERATION"
                         await self.broadcast(
                             trial_id,
                             "jury_deliberation",
@@ -175,6 +254,9 @@ class TrialManager:
                         )
 
             trial_info["status"] = "completed"
+            trial_info["current_stage"] = "CONCLUDED"
+            trial_info["completed_at"] = datetime.now(timezone.utc).isoformat()
+
             await self.broadcast(
                 trial_id,
                 "trial_completed",
@@ -188,10 +270,14 @@ class TrialManager:
         except Exception as exc:
             trial_info["status"] = "failed"
             trial_info["error"] = str(exc)
+            trial_info["completed_at"] = datetime.now(timezone.utc).isoformat()
             await self.broadcast(
                 trial_id,
                 "error",
-                {"message": f"Simulation interrupted: {str(exc)}"},
+                {
+                    "stage": trial_info["current_stage"],
+                    "message": str(exc),
+                },
             )
 
     def load_cached_trial(self, filename: str) -> dict[str, Any] | None:
@@ -200,10 +286,15 @@ class TrialManager:
                 data = json.load(f)
                 trial_id = f"demo-{uuid.uuid4().hex[:8]}"
                 data["trial_id"] = trial_id
+                now_iso = datetime.now(timezone.utc).isoformat()
                 self.trials[trial_id] = {
                     "id": trial_id,
                     "state": data,
                     "status": "completed",
+                    "current_stage": "CONCLUDED",
+                    "created_at": now_iso,
+                    "started_at": now_iso,
+                    "completed_at": now_iso,
                     "error": None,
                 }
                 return data

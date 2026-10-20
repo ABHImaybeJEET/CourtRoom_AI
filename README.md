@@ -144,7 +144,10 @@ pytest -v
 | `/api/cases/cached` | `GET` | List instant pre-recorded demo cases |
 | `/api/cases/load-cached/{filename}` | `POST` | Load a pre-recorded demo simulation |
 | `/api/trials` | `POST` | Initialize a new trial and upload PDF exhibits |
-| `/api/trials/{id}` | `GET` | Fetch current trial state |
+| `/api/trials/{id}/start` | `POST` | Explicitly launch an initialized trial run |
+| `/api/trials/{id}/status` | `GET` | Lightweight monitoring telemetry and runtime stage status |
+| `/api/trials/{id}/stages` | `GET` | Structured stage outputs (arguments, scores, verdicts) |
+| `/api/trials/{id}` | `GET` | Fetch complete trial state record |
 | `/api/trials/{id}/stream` | `GET` | Server-Sent Events (SSE) stream for live simulation |
 | `/api/trials/{id}/export/pdf` | `GET` | Download certified PDF trial transcript |
 | `/api/trials/{id}/export/json` | `GET` | Download full trial state JSON |
