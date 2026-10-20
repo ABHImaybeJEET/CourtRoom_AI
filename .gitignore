@@ -160,3 +160,7 @@ startup_errors.txt
 *.pdf
 chroma/
 faiss_index/
+node_modules/
+frontend/node_modules/
+data/sessions/
+data/uploads/
