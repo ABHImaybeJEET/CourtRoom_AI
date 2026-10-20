@@ -165,3 +165,34 @@ async def test_agent_fails_explicitly_when_provider_fails(monkeypatch):
             await prosecution_agent({"case_description": "Valid case description", "round_number": 0, "max_rounds": 2})
 
         assert "Prosecution Agent failed" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_mocked_provider_passes_tracing_config(monkeypatch):
+    """Verify that safe_ainvoke forwards sanitised LangSmith run config when tracing_metadata is provided."""
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_mock_valid_key")
+    monkeypatch.setenv("LANGCHAIN_TRACING_V2", "true")
+    monkeypatch.setenv("LANGCHAIN_API_KEY", "lsv2_pt_mock_key")
+
+    mock_response = MagicMock()
+    mock_response.content = '{"argument_text": "Argument with trace."}'
+
+    with patch("langchain_groq.ChatGroq.ainvoke", new_callable=AsyncMock) as mock_ainvoke:
+        mock_ainvoke.return_value = mock_response
+
+        await safe_ainvoke(
+            messages=[("human", "Build argument")],
+            model_names=["llama-3.3-70b-versatile"],
+            tracing_metadata={"trial_id": "trial-trace-1", "stage": "PROSECUTION_ARGUMENT", "role": "prosecutor"},
+        )
+
+        assert mock_ainvoke.called
+        kwargs = mock_ainvoke.call_args.kwargs
+        assert "config" in kwargs
+        config = kwargs["config"]
+        assert config["run_name"] == "CourtRoom [PROSECUTION_ARGUMENT]"
+        assert "courtroom-ai" in config["tags"]
+        assert config["metadata"]["trial_id"] == "trial-trace-1"
+        assert config["metadata"]["stage"] == "PROSECUTION_ARGUMENT"
+        assert config["metadata"]["role"] == "prosecutor"
+

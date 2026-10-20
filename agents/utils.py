@@ -182,8 +182,16 @@ async def safe_ainvoke(
                 await asyncio.sleep(random.uniform(0.05, 0.15))
 
                 # Safe execution with timeout safeguard
+                invoke_kwargs = {}
+                if tracing_metadata:
+                    invoke_kwargs["config"] = get_langsmith_config(
+                        trial_id=tracing_metadata.get("trial_id"),
+                        stage=tracing_metadata.get("stage"),
+                        extra_meta=tracing_metadata,
+                    )
+
                 response = await asyncio.wait_for(
-                    llm.ainvoke(messages),
+                    llm.ainvoke(messages, **invoke_kwargs),
                     timeout=timeout_seconds,
                 )
 
