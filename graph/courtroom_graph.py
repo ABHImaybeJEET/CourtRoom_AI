@@ -1,11 +1,15 @@
 from typing import TypedDict, Any
+import logging
 from langgraph.graph import StateGraph, END, START
 from agents.prosecutor import prosecution_agent
 from agents.defense import defense_agent
 from agents.judge import judge_agent
 from agents.jury_simulator import jury_simulator_node
+from agents.utils import traceable
 from rag.retriever import retrieve_context
 from tools.web_search import web_search
+
+logger = logging.getLogger("courtroom.graph")
 
 
 class CourtRoomState(TypedDict, total=False):
@@ -30,25 +34,32 @@ class CourtRoomState(TypedDict, total=False):
     status: str
 
 
+@traceable(name="Ingest_Documents_Stage", run_type="tool")
 async def ingest_documents_node(state: CourtRoomState) -> dict:
+    trial_id = state.get("trial_id", "anonymous")
+    doc_count = len(state.get("case_documents", []))
+    logger.info("Graph node: ingest_documents (trial_id='%s', documents=%d)", trial_id, doc_count)
     return {"status": "documents_ingested"}
 
 
+@traceable(name="Retrieve_Context_Stage", run_type="retriever")
 async def retrieve_context_node(state: CourtRoomState) -> dict:
     session_id = state.get("trial_id")
     case_desc = state.get("case_description", "")
+    logger.info("Graph node: retrieve_context (trial_id='%s')", session_id)
     context = retrieve_context(case_desc, k=5, session_id=session_id)
     return {"retrieved_context": context, "status": "context_retrieved"}
 
 
+@traceable(name="Web_Search_Stage", run_type="tool")
 async def web_search_node(state: CourtRoomState) -> dict:
     case_desc = state.get("case_description", "")
-    # Use key legal query line or first 200 chars for a cleaner search
     query_line = case_desc.split("\n")[0].strip() if case_desc else ""
     if len(query_line) > 200:
         query_line = query_line[:200]
     
     search_query = f"{query_line} legal case law precedent" if query_line else "legal precedent case law"
+    logger.info("Graph node: web_search (query='%s')", search_query[:80])
     search_results = web_search(search_query)
     return {"web_search_results": search_results, "status": "web_search_completed"}
 
@@ -71,18 +82,21 @@ async def judge_node(state: CourtRoomState) -> dict:
     return result
 
 
+@traceable(name="Increment_Round_Stage", run_type="chain")
 async def increment_round(state: CourtRoomState) -> dict:
+    next_round = state.get("round_number", 0) + 1
+    logger.info("Graph node: increment_round -> advancing to round %d", next_round)
     history = list(state.get("debate_history", []))
     history.append({
-        "round": state.get("round_number", 0) + 1,
+        "round": next_round,
         "prosecution": state.get("prosecution_argument", {}),
         "defense": state.get("defense_argument", {}),
         "judge_scores": state.get("judge_scores", {}),
     })
     return {
-        "round_number": state.get("round_number", 0) + 1,
+        "round_number": next_round,
         "debate_history": history,
-        "status": f"round_{state.get('round_number', 0) + 1}_completed",
+        "status": f"round_{next_round}_completed",
     }
 
 
@@ -100,7 +114,11 @@ async def jury_node(state: CourtRoomState) -> dict:
     return result
 
 
+@traceable(name="Final_Verdict_Stage", run_type="chain")
 async def final_verdict_node(state: CourtRoomState) -> dict:
+    trial_id = state.get("trial_id", "anonymous")
+    verdict = state.get("final_verdict", "Undecided")
+    logger.info("Graph node: final_verdict concluded (trial_id='%s', verdict='%s')", trial_id, verdict)
     return {"status": "trial_concluded"}
 
 

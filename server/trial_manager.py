@@ -1,10 +1,14 @@
 import asyncio
 import json
 import uuid
+import logging
 from datetime import datetime, timezone
 from typing import Any
 from graph.courtroom_graph import create_courtroom_graph, CourtRoomState
 from rag.ingestion import ingest_text, ingest_pdf
+from agents.utils import get_langsmith_config
+
+logger = logging.getLogger("courtroom.manager")
 
 
 class TrialManager:
@@ -21,6 +25,8 @@ class TrialManager:
     ) -> str:
         trial_id = f"trial-{uuid.uuid4().hex[:10]}"
         now_iso = datetime.now(timezone.utc).isoformat()
+
+        logger.info("Creating trial: id='%s', max_rounds=%d, fast_mode=%s", trial_id, max_rounds, fast_mode)
 
         # Ingest text or documents under this trial's isolated session
         if file_paths:
@@ -156,6 +162,24 @@ class TrialManager:
         trial_info["started_at"] = datetime.now(timezone.utc).isoformat()
         trial_info["current_stage"] = "INITIALIZATION"
 
+        logger.info("Executing trial pipeline for '%s'", trial_id)
+
+        # Build clean LangSmith run config without sensitive data
+        run_config = {
+            "run_name": f"CourtRoom Trial [{trial_id}]",
+            "tags": [
+                "courtroom-ai",
+                f"rounds-{state.get('max_rounds', 2)}",
+                "fast-mode" if state.get("fast_mode") else "standard-mode",
+            ],
+            "metadata": {
+                "trial_id": trial_id,
+                "max_rounds": state.get("max_rounds", 2),
+                "fast_mode": state.get("fast_mode", False),
+                "has_uploaded_docs": bool(state.get("case_documents")),
+            },
+        }
+
         await self.broadcast(
             trial_id,
             "stage_change",
@@ -165,10 +189,9 @@ class TrialManager:
         try:
             graph = create_courtroom_graph()
 
-            # Stream nodes from LangGraph
-            async for output in graph.astream(state, stream_mode="updates"):
+            # Stream nodes from LangGraph with run_config attached for LangSmith
+            async for output in graph.astream(state, config=run_config, stream_mode="updates"):
                 for node_name, node_update in output.items():
-                    # Update local state
                     state.update(node_update)
 
                     if node_name == "retrieve_context":
@@ -256,6 +279,7 @@ class TrialManager:
             trial_info["status"] = "completed"
             trial_info["current_stage"] = "CONCLUDED"
             trial_info["completed_at"] = datetime.now(timezone.utc).isoformat()
+            logger.info("Trial pipeline completed successfully for '%s'", trial_id)
 
             await self.broadcast(
                 trial_id,
@@ -271,6 +295,8 @@ class TrialManager:
             trial_info["status"] = "failed"
             trial_info["error"] = str(exc)
             trial_info["completed_at"] = datetime.now(timezone.utc).isoformat()
+            logger.error("Trial pipeline failed for '%s': %s", trial_id, exc, exc_info=True)
+
             await self.broadcast(
                 trial_id,
                 "error",

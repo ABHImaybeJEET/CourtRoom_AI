@@ -1,7 +1,9 @@
 import asyncio
-from langsmith import traceable
+import logging
 from tools.web_search import web_search
-from agents.utils import parse_json_from_llm, safe_ainvoke, AgentExecutionError
+from agents.utils import parse_json_from_llm, safe_ainvoke, AgentExecutionError, traceable
+
+logger = logging.getLogger("courtroom.judge")
 
 JUDGE_SYSTEM_PROMPT = """
 You are a presiding judge reviewing both the prosecution's and defense's written arguments. Evaluate each argument on legal merit, the quality of evidence, precedent accuracy, and reasoning.
@@ -15,11 +17,13 @@ Your response must be a valid JSON object with the following keys:
 """
 
 
+@traceable(name="Verify_Citation", run_type="tool")
 async def verify_citation(citation: str, side: str) -> dict | None:
     if not citation or not citation.strip():
         return None
     context = web_search(citation)
     if "Error" in context or len(context.strip()) < 40 or "not configured" in context:
+        logger.warning("Citation verification flagged: '%s' (side: %s)", citation, side)
         return {
             "side": side,
             "citation": citation,
@@ -28,12 +32,15 @@ async def verify_citation(citation: str, side: str) -> dict | None:
     return None
 
 
-@traceable
+@traceable(name="Judge_Agent", run_type="chain")
 async def judge_agent(state: dict) -> dict:
     prosecution = state.get("prosecution_argument", {})
     defense = state.get("defense_argument", {})
     round_num = state.get("round_number", 0) + 1
     max_rounds = state.get("max_rounds", 2)
+    trial_id = state.get("trial_id", "anonymous")
+
+    logger.info("Judge agent evaluating arguments: round=%d/%d, trial_id='%s'", round_num, max_rounds, trial_id)
 
     prompt = f"""
     Current Trial Stage: Round {round_num} of {max_rounds}
@@ -64,10 +71,10 @@ async def judge_agent(state: dict) -> dict:
             messages,
             temperature=0.1,
             model_names=["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+            tracing_metadata={"trial_id": trial_id, "stage": "Judge_Evaluation", "round": round_num},
         )
         result = parse_json_from_llm(response.content)
 
-        # Check required schema keys
         if not isinstance(result, dict) or "prosecution_scores" not in result or "defense_scores" not in result:
             raise ValueError("Judge evaluation JSON response is missing required scoring keys.")
 
@@ -88,9 +95,16 @@ async def judge_agent(state: dict) -> dict:
         )
         hallucination_flags = [v for v in verification_results if v is not None]
 
+        logger.info(
+            "Judge evaluation complete: preliminary_ruling='%s', citation_flags=%d",
+            result.get("preliminary_ruling"),
+            len(hallucination_flags),
+        )
+
         return {
             "judge_scores": result,
             "hallucination_flags": hallucination_flags,
         }
     except Exception as exc:
+        logger.error("Judge agent failed during round %d: %s", round_num, exc)
         raise AgentExecutionError(f"Judge Agent evaluation failed: {exc}") from exc

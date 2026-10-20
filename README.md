@@ -124,6 +124,43 @@ python main.py --streamlit
 
 ---
 
+## 🔍 LangSmith Tracing & Observability
+
+CourtRoom AI is instrumented with native LangSmith tracing across the entire LangGraph orchestration pipeline, agent reasoning chains, and citation verification tools.
+
+### 1. Configuration
+Add the following to your `.env` file:
+```env
+# Enable LangSmith V2 Tracing (Optional)
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY="lsv2_pt_your_langsmith_api_key_here"
+LANGCHAIN_PROJECT="courtroom-ai"
+```
+
+> **Note:** Tracing is completely optional. If `LANGCHAIN_API_KEY` is omitted or `LANGCHAIN_TRACING_V2=false`, the platform executes normally with zero performance degradation or network errors.
+
+### 2. How to Confirm a Run in LangSmith
+1. Start the server (`python main.py`).
+2. Run any benchmark or custom trial from the web UI or via `POST /api/trials`.
+3. Open your [LangSmith Dashboard](https://smith.langchain.com) and navigate to the **`courtroom-ai`** project.
+4. You will see a root trace named `CourtRoom Trial [trial-xxxx]` with metadata (`trial_id`, `max_rounds`, `fast_mode`) and tags (`courtroom-ai`, `rounds-2`, `standard-mode`).
+5. Expanding the trace displays the hierarchical execution graph:
+   - `Ingest_Documents_Stage`
+   - `Retrieve_Context_Stage` (retriever)
+   - `Web_Search_Stage` (Tavily search)
+   - `Prosecution_Agent` (chain $\to$ `ChatGroq`)
+   - `Defense_Agent` (chain $\to$ `ChatGroq`)
+   - `Judge_Agent` (chain $\to$ `Verify_Citation` tools)
+   - `Jury_Simulation_Stage` (`Jury_Panel_Deliberation` or `Single_Juror_Vote`)
+   - `Final_Verdict_Stage`
+
+### 3. Privacy & Sensitive Data Safeguards
+- **Zero Secret Leakage:** `GROQ_API_KEY`, `TAVILY_API_KEY`, and `LANGCHAIN_API_KEY` are scrubbed and never attached to run metadata.
+- **Lightweight Metadata:** Large document text bodies and vector chunks are excluded or truncated in metadata payloads to keep traces fast and lightweight.
+- **Explicit Failure Attribution:** Provider timeouts and 429 rate limit backoff cycles are captured directly in the trace error logs for granular debugging.
+
+---
+
 ## 🧪 Testing
 
 CourtRoom AI includes a comprehensive automated test suite covering agent utilities, JSON schemas, citation extraction, LangGraph routing, RAG session isolation, and FastAPI REST endpoints.

@@ -1,7 +1,9 @@
 import json
 import asyncio
-from langsmith import traceable
-from agents.utils import parse_json_from_llm, safe_ainvoke, AgentExecutionError
+import logging
+from agents.utils import parse_json_from_llm, safe_ainvoke, AgentExecutionError, traceable
+
+logger = logging.getLogger("courtroom.jury")
 
 JUROR_PROFILES = [
     {"age": 34, "gender": "Female", "occupation": "Teacher", "political_lean": "Liberal", "education_level": "Master's", "prior_jury_experience": False, "empathy_score": 8, "skepticism_score": 4, "media_bias": 6},
@@ -19,6 +21,7 @@ JUROR_PROFILES = [
 ]
 
 
+@traceable(name="Single_Juror_Vote", run_type="chain")
 async def run_single_juror(
     juror_id: int,
     profile: dict,
@@ -27,6 +30,7 @@ async def run_single_juror(
     judge_summary: str,
     judge_scores: dict,
     case_desc: str,
+    trial_id: str = "anonymous",
 ) -> dict:
     prompt = f"""
     You are Juror #{juror_id}. Here is your individual profile:
@@ -55,6 +59,7 @@ async def run_single_juror(
         messages,
         temperature=0.7,
         model_names=["llama-3.1-8b-instant", "llama-3.3-70b-versatile"],
+        tracing_metadata={"trial_id": trial_id, "stage": "Single_Juror", "juror_id": juror_id},
     )
     parsed = parse_json_from_llm(response.content)
     parsed["juror_id"] = juror_id
@@ -64,7 +69,8 @@ async def run_single_juror(
     return parsed
 
 
-async def run_jury_panel(prosecution, defense, judge_summary, judge_scores, case_desc, profiles):
+@traceable(name="Jury_Panel_Deliberation", run_type="chain")
+async def run_jury_panel(prosecution, defense, judge_summary, judge_scores, case_desc, profiles, trial_id: str = "anonymous"):
     system_prompt = f"""
     You are simulating the collective jury deliberation for a panel of {len(profiles)} jurors.
     Review the case description, the prosecution's final argument, the defense's final argument, and the judge's scoring summary.
@@ -102,6 +108,7 @@ async def run_jury_panel(prosecution, defense, judge_summary, judge_scores, case
         messages,
         temperature=0.7,
         model_names=["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+        tracing_metadata={"trial_id": trial_id, "stage": "Jury_Panel", "pool_size": len(profiles)},
     )
 
     result = parse_json_from_llm(response.content)
@@ -130,8 +137,9 @@ async def run_jury_panel(prosecution, defense, judge_summary, judge_scores, case
     return verdicts
 
 
-@traceable
+@traceable(name="Jury_Simulation_Stage", run_type="chain")
 async def jury_simulator_node(state: dict):
+    trial_id = state.get("trial_id", "anonymous")
     prosecution = state.get("prosecution_argument", {}).get("argument_text", "")
     defense = state.get("defense_argument", {}).get("argument_text", "")
     judge_summary = state.get("judge_scores", {}).get("reasoning_summary", "")
@@ -139,20 +147,23 @@ async def jury_simulator_node(state: dict):
     case_desc = state.get("case_description", "")
     profiles = JUROR_PROFILES[:6] if state.get("fast_mode") else JUROR_PROFILES
 
+    logger.info("Jury deliberation starting: pool_size=%d, trial_id='%s'", len(profiles), trial_id)
+
     try:
-        verdicts = await run_jury_panel(prosecution, defense, judge_summary, judge_scores, case_desc, profiles)
+        verdicts = await run_jury_panel(prosecution, defense, judge_summary, judge_scores, case_desc, profiles, trial_id=trial_id)
     except Exception as exc:
-        print(f"Jury panel full-batch failed ({exc}), attempting individual juror deliberation...")
+        logger.warning("Jury panel full-batch failed (%s), running individual juror deliberation...", exc)
         sem = asyncio.Semaphore(3)
 
         async def safe_run(n, profile):
             async with sem:
-                return await run_single_juror(n, profile, prosecution, defense, judge_summary, judge_scores, case_desc)
+                return await run_single_juror(n, profile, prosecution, defense, judge_summary, judge_scores, case_desc, trial_id=trial_id)
 
         try:
             tasks = [safe_run(i + 1, profile) for i, profile in enumerate(profiles)]
             verdicts = await asyncio.gather(*tasks)
         except Exception as fallback_exc:
+            logger.error("Jury simulation deliberation completely failed: %s", fallback_exc)
             raise AgentExecutionError(f"Jury simulation deliberation completely failed: {fallback_exc}") from fallback_exc
 
     # Ensure profile is present in each verdict
@@ -170,6 +181,8 @@ async def jury_simulator_node(state: dict):
     else:
         final_verdict = "Hung Jury"
 
+    logger.info("Jury vote tally: %d Guilty, %d Not Guilty -> Verdict: %s", guilty_count, not_guilty_count, final_verdict)
+
     analysis_prompt = (
         f"Analyze these jury verdicts and explain which demographic segments voted which way and why based on their profiles: "
         f"{json.dumps(verdicts)}"
@@ -179,9 +192,11 @@ async def jury_simulator_node(state: dict):
             [("system", "You are an expert legal demographic analyst and trial consultant."), ("human", analysis_prompt)],
             temperature=0.3,
             model_names=["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+            tracing_metadata={"trial_id": trial_id, "stage": "Demographic_Analysis"},
         )
         analysis_content = analysis_response.content
     except Exception as e:
+        logger.warning("Demographic explanation call failed: %s", e)
         analysis_content = (
             f"Deliberation concluded with {guilty_count} Guilty votes and {not_guilty_count} Not Guilty votes. "
             f"Demographic explanation could not be generated: {e}"
