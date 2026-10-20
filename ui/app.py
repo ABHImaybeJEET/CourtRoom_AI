@@ -120,6 +120,8 @@ st.markdown("""
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
+import html
+
 def generate_pdf(state):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=LETTER)
@@ -134,29 +136,29 @@ def generate_pdf(state):
     Story.append(Paragraph("CourtRoom AI - Trial Transcript", title_style))
     Story.append(Spacer(1, 12))
     
-    Story.append(Paragraph(f"<b>Case details:</b> {state.get('case_description', '')}", normal_style))
+    Story.append(Paragraph(f"<b>Case details:</b> {html.escape(str(state.get('case_description', '')))}", normal_style))
     Story.append(Spacer(1, 12))
     
-    Story.append(Paragraph(f"<b>Final Verdict:</b> {state.get('final_verdict', 'N/A')}", subtitle_style))
+    Story.append(Paragraph(f"<b>Final Verdict:</b> {html.escape(str(state.get('final_verdict', 'N/A')))}", subtitle_style))
     Story.append(Spacer(1, 24))
     
     Story.append(Paragraph("Prosecution's Argument", subtitle_style))
     prosecution_text = state.get('prosecution_argument', {}).get('argument_text', 'N/A')
-    Story.append(Paragraph(str(prosecution_text).replace('\n', '<br/>'), normal_style))
+    Story.append(Paragraph(html.escape(str(prosecution_text)).replace('\n', '<br/>'), normal_style))
     Story.append(Spacer(1, 12))
     
     Story.append(Paragraph("Defense's Argument", subtitle_style))
     defense_text = state.get('defense_argument', {}).get('argument_text', 'N/A')
-    Story.append(Paragraph(str(defense_text).replace('\n', '<br/>'), normal_style))
+    Story.append(Paragraph(html.escape(str(defense_text)).replace('\n', '<br/>'), normal_style))
     Story.append(Spacer(1, 12))
     
     judge_scores = state.get('judge_scores', {})
     Story.append(Paragraph("Judge's Summary", subtitle_style))
-    Story.append(Paragraph(str(judge_scores.get('reasoning_summary', 'N/A')), normal_style))
+    Story.append(Paragraph(html.escape(str(judge_scores.get('reasoning_summary', 'N/A'))), normal_style))
     Story.append(Spacer(1, 12))
     
     Story.append(Paragraph("Jury Deliberation Analysis", subtitle_style))
-    Story.append(Paragraph(str(state.get('demographic_analysis', 'N/A')), normal_style))
+    Story.append(Paragraph(html.escape(str(state.get('demographic_analysis', 'N/A'))), normal_style))
     
     doc.build(Story)
     buffer.seek(0)
@@ -323,27 +325,17 @@ if begin_trial:
         """)
         
         with st.spinner("⚖️ Running the legal review workflow and checking evidence..."):
-            # Handle PDF ingestion
-            if uploaded_files:
-                for uploaded_file in uploaded_files:
-                    path = os.path.join("data", uploaded_file.name)
-                    with open(path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-                    ingest_pdf(path)
-            else:
-                ingest_text(case_input)
-
             # Run graph
             try:
                 stage_placeholder = st.empty()
                 progress_bar = st.progress(0)
 
-                stage_placeholder.info("Preparing the courtroom simulation...")
+                stage_placeholder.info("Preparing courtroom simulation...")
                 progress_bar.progress(10)
 
                 if uploaded_files:
-                    stage_placeholder.info("Ingesting uploaded documents...")
-                    progress_bar.progress(20)
+                    stage_placeholder.info("Ingesting uploaded case documents...")
+                    progress_bar.progress(25)
                     for uploaded_file in uploaded_files:
                         path = os.path.join("data", uploaded_file.name)
                         with open(path, "wb") as f:
@@ -351,7 +343,7 @@ if begin_trial:
                         ingest_pdf(path)
                 else:
                     stage_placeholder.info("Encoding case description into the vector store...")
-                    progress_bar.progress(30)
+                    progress_bar.progress(25)
                     ingest_text(case_input)
 
                 stage_placeholder.info("Building context and retrieving relevant evidence...")
@@ -471,18 +463,21 @@ if "final_state" in st.session_state:
             juror_idx = i + j
             if juror_idx < len(state['jury_verdicts']):
                 juror = state['jury_verdicts'][juror_idx]
+                profile = juror.get('profile') or {}
+                juror_age = profile.get('age', '—')
+                juror_occ = profile.get('occupation', 'Citizen')
                 with cols[j]:
                     st.markdown(f"""
                     <div class="juror-card">
                         <div class="juror-header">
-                            <span>#{juror['juror_id']} • <span style="font-weight:normal; font-size: 0.9em;">{juror['profile']['age']}y, {juror['profile']['occupation']}</span></span>
+                            <span>#{juror.get('juror_id', juror_idx+1)} • <span style="font-weight:normal; font-size: 0.9em;">{juror_age}y, {juror_occ}</span></span>
                         </div>
                         <div style="margin-top: 5px;">
-                            <span class="{'guilty-badge' if juror['verdict'] == 'Guilty' else 'not-guilty-badge'}">
-                                {juror['verdict']} ({juror['confidence']*100:.0f}%)
+                            <span class="{'guilty-badge' if juror.get('verdict') in ['Guilty', 'Liable'] else 'not-guilty-badge'}">
+                                {juror.get('verdict', 'Undecided')} ({juror.get('confidence', 0.5)*100:.0f}%)
                             </span>
                         </div>
-                        <div class="juror-reasoning">"{juror['reasoning']}"</div>
+                        <div class="juror-reasoning">"{juror.get('reasoning', 'No comment.')}"</div>
                     </div>
                     """, unsafe_allow_html=True)
 

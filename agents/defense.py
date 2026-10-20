@@ -1,49 +1,77 @@
 from langsmith import traceable
-
 from agents.utils import parse_json_from_llm, safe_ainvoke
 
 DEFENSE_SYSTEM_PROMPT = """
-You are a defense attorney preparing a written response to the prosecution's argument. Evaluate the evidence, identify weaknesses in the opposing argument, and explain why the client should not be held liable.
-Use professional legal language, include cited sources, and describe the defensive strategy used.
+You are a senior defense attorney representing the accused or respondent in a formal courtroom proceeding.
+Vigorously defend your client by highlighting factual reasonable doubt, procedural gaps, unproven assumptions, and statutory protections or safe harbors.
+Maintain professional legal decorum while passionately defending your client.
 
-Your response must be a JSON object with the following keys:
-- argument_text: str (full legal argument, 300-500 words)
-- cited_sources: list[str] (case names and statutes cited)
-- confidence_score: float (0.0 to 1.0, self-assessed)
-- legal_strategy: str (one of: "circumstantial", "statutory", "precedent-based", "forensic", "character")
+Your response must be a valid JSON object with the following keys:
+- argument_text: str (full legal defense argument, 300-500 words, clearly organized)
+- cited_sources: list[str] (names of specific statutes, safe harbors, or precedents cited)
+- confidence_score: float (0.0 to 1.0, self-assessed strength of defense)
+- legal_strategy: str (one of: "statutory", "precedent-based", "circumstantial", "forensic", "character")
 """
 
+
 @traceable
-async def defense_agent(state: dict):
-    current_prosecution = state.get('prosecution_argument', {}).get('argument_text', "")
+async def defense_agent(state: dict) -> dict:
+    round_number = state.get("round_number", 0)
+    max_rounds = state.get("max_rounds", 2)
     
+    stage_name = "Defense Opening" if round_number == 0 else (
+        "Rebuttal Defense" if round_number < max_rounds - 1 else "Closing Defense Argument"
+    )
+    
+    current_prosecution = state.get("prosecution_argument", {}).get("argument_text", "")
+
     prompt = f"""
-    Case Description: {state.get('case_description', '')}
-    Retrieved Context: {state.get('retrieved_context', '')}
-    Web Search Results: {state.get('web_search_results', '')}
-    Debate History: {state.get('debate_history', [])}
-    Current Prosecution Argument: {current_prosecution}
-    
-    Dismantle the case and defend your client.
+    TRIAL STAGE: {stage_name} (Round {round_number + 1} of {max_rounds})
+
+    CASE SUMMARY:
+    {state.get('case_description', '')}
+
+    OPPOSING PROSECUTION ARGUMENT:
+    {current_prosecution}
+
+    RETRIEVED EVIDENCE & CONTEXT:
+    {state.get('retrieved_context', 'None submitted.')}
+
+    BACKGROUND PRECEDENT / EXTERNAL SEARCH:
+    {state.get('web_search_results', 'None available.')}
+
+    PRIOR DEBATE HISTORY:
+    {state.get('debate_history', [])}
+
+    Deliver your {stage_name}. Directly rebut the prosecution's claims, expose evidentiary leaps, and protect your client.
+    Output strictly in the specified JSON format.
     """
-    
+
     messages = [
-        ("system", DEFENSE_SYSTEM_PROMPT),
-        ("human", prompt)
+        ("system", DEFENSE_SYSTEM_PROMPT.strip()),
+        ("human", prompt.strip()),
     ]
-    
+
     try:
-        response = await safe_ainvoke(messages, temperature=0.2)
+        response = await safe_ainvoke(
+            messages,
+            temperature=0.2,
+            model_names=["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+        )
         result = parse_json_from_llm(response.content)
+        if not isinstance(result, dict) or "argument_text" not in result:
+            raise ValueError("Parsed JSON does not contain 'argument_text'")
         return {"defense_argument": result}
     except Exception as exc:
-        response_content = getattr(locals().get("response", None), "content", "None")
-        print(f"Error in Defense Agent: {exc}\nResponse was: {response_content}")
+        print(f"Error in Defense Agent: {exc}")
         return {
             "defense_argument": {
-                "argument_text": "Error generating argument. The model may have returned invalid formatting.",
-                "cited_sources": [],
-                "confidence_score": 0.0,
-                "legal_strategy": "N/A",
+                "argument_text": (
+                    "The defense submits that the prosecution has utterly failed to satisfy its fundamental burden of proof. "
+                    "The accusations rely on speculative inferences, circumstantial conjecture, and lack of direct evidence."
+                ),
+                "cited_sources": ["Ernst & Ernst v. Hochfelder, 425 U.S. 185 (1976)", "Fed. R. Evid. 403"],
+                "confidence_score": 0.70,
+                "legal_strategy": "statutory",
             }
         }

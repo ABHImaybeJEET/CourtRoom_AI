@@ -1,10 +1,29 @@
 [project]
 name = "courtroom-ai"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "AI Legal Courtroom Simulation Platform"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
-    "langchain-community>=0.4.1",
-    "pymupdf>=1.27.2.2",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+    "langchain-community>=0.3.0",
+    "langchain-groq>=0.2.0",
+    "langgraph>=0.2.0",
+    "langsmith>=0.1.0",
+    "tavily-python>=0.4.0",
+    "faiss-cpu>=1.8.0",
+    "sentence-transformers>=3.0.0",
+    "pymupdf>=1.24.0",
+    "python-dotenv>=1.0.0",
+    "reportlab>=4.2.0",
+    "plotly>=5.22.0",
+    "pydantic>=2.7.0",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
