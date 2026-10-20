@@ -1,117 +1,156 @@
 <div align="center">
   <img src="https://img.icons8.com/color/124/000000/law.png" alt="Courtroom Icon">
   <h1>⚖️ CourtRoom AI</h1>
-  <h3>Legal argument simulation with evidence review</h3>
+  <h3>Autonomous Legal Trial Simulation &amp; Deliberation Platform</h3>
 
   <p align="center">
-    <b>Powered by LangGraph, Tavily Search, & FAISS Vector Search</b>
+    <b>FastAPI Backend &bull; LangGraph Multi-Agent Engine &bull; Modern React/Vite Courtroom Web App</b>
     <br/>
     <a href="#about">About</a> &bull;
     <a href="#features">Features</a> &bull;
     <a href="#architecture">Architecture</a> &bull;
-    <a href="#installation">Installation</a> &bull;
-    <a href="#usage">Usage</a>
+    <a href="#quickstart">Quickstart</a> &bull;
+    <a href="#testing">Testing</a> &bull;
+    <a href="#api-reference">API Reference</a>
   </p>
 </div>
 
 ---
 
 ## 🏛️ About
-**CourtRoom AI** is a legal simulation platform designed to model prosecution and defense argument generation, evidence retrieval, and citation review.
+**CourtRoom AI** is a legal trial simulation platform designed to model adversarial prosecution, defense counter-arguments, judicial review with citation grounding, and an interactive 12-member jury deliberation panel.
 
-By supplying a case scenario or uploading supporting documents, the system uses retrieval-augmented text analysis to produce structured arguments, compare them, and summarize a mock jury outcome. A judge review step checks argument strength and citation reliability before the jury summary is produced.
-
-This tool is intended for testing legal reasoning workflows and reviewing how evidence and legal precedent can be assembled in a structured format.
+Users can supply a case brief or upload supporting PDF exhibits. The platform indexes evidence into an isolated session vector store, retrieves relevant precedents, and runs an autonomous adversarial courtroom proceeding in real time with live streaming telemetry.
 
 ---
 
-## 🔥 Features
-- 🎯 **Structured Legal Roles:** Separate prosecution, defense, judge review, and jury summary stages for clearer workflow analysis.
-- 🗂️ **Document Retrieval:** Upload PDFs or enter case text. The system converts content into searchable chunks and uses FAISS for relevant context retrieval.
-- 🔎 **Citation and Evidence Review:** A judge review step checks argument coherence and citation reliability using external search results.
-- 👥 **Jury Summary:** Generates a jury outcome with individual verdicts and reasoning based on a mix of juror profiles.
-- 📑 **Transcript Export:** Produces a downloadable PDF summary of the case, arguments, judge findings, and jury results.
+## 🔥 Key Features
+
+- 🎯 **Adversarial Legal Podiums:** Autonomous Lead Prosecutor and Senior Defense Counsel generate stage-aware legal briefs (Opening Statements, Rebuttals, and Closing Arguments) with strategy tagging and self-assessed confidence metrics.
+- 👨‍⚖️ **Judicial Review & Scorecard:** A presiding judge agent scores each side across four dimensions: *Legal Soundness*, *Evidence Quality*, *Logical Coherence*, and *Precedent Accuracy*.
+- 🔎 **Citation Grounding & Audit:** Real-time Tavily search verifies cited statutes and judicial authorities, flagging hallucinated citations.
+- 👥 **Interactive 12-Juror Deliberation Box:** A demographically and psychologically diverse jury panel (evaluating age, occupation, empathy, and skepticism metrics) deliberates to render individual verdicts and reasoning.
+- ⚡ **Real-Time SSE Streaming:** Live Server-Sent Events (SSE) update the courtroom timeline stage-by-stage without page reloads or UI freezing.
+- 📑 **Certified PDF Transcript Export:** Generates multi-page, formatted legal trial transcripts with crash-proof XML escaping.
+- 🛡️ **Session-Isolated RAG:** Documents uploaded for a trial are isolated per session ID, preventing cross-trial context contamination.
+- ⚡ **Instant Recorded Demos:** Built-in instant preview for landmark simulations (*Wall Street Insider Trading* &amp; *Satyam Financial Fraud*).
 
 ---
 
 ## 🛠️ Architecture
 
-System architecture:
-* **Orchestration:** `LangGraph` and `LangChain`
-* **External Search:** `Tavily` Search API
-* **Vector Store:** `FAISS-CPU` + MiniLM Embeddings
-* **User Interface:** `Streamlit`
-
 ```mermaid
 graph TD;
-    Input[User Case / PDFs] --> RAG[FAISS Retrieval Pipeline]
-    RAG --> Prosecution(Prosecutor)
-    Prosecution --> Defense(Defense)
-    Defense --> WebSearch{Tavily Fact Check}
-    WebSearch --> Judge(Judge Review)
-    Judge --> Jury[Jury Summary]
-    Jury --> Verdict[Final Verdict & Demographic Summary]
+    Input[Case Brief / PDF Exhibits] --> SessionRAG[Session-Isolated FAISS Vector Store]
+    SessionRAG --> ExtSearch[Tavily Legal Precedent Search]
+    ExtSearch --> Prosecution[Prosecution Opening / Argument]
+    Prosecution --> Defense[Defense Rebuttal]
+    Defense --> Judge[Judicial Evaluation & Citation Audit]
+    Judge --> RoundCheck{Rounds Remaining?}
+    RoundCheck -- Yes --> Prosecution
+    RoundCheck -- No --> Jury[12-Member Jury Deliberation Panel]
+    Jury --> Verdict[Final Verdict & Demographic Analysis]
+    Verdict --> Export[Certified PDF & JSON Transcript Export]
 ```
 
 ---
 
-## 🚀 Installation
+## 🚀 Quickstart
 
-Ensure you have Python 3.10+ installed. Virtual environments are highly recommended via `uv` or `venv`.
+### 1. Prerequisites
+- Python 3.11+
+- Node.js 18+ (for frontend development)
 
+### 2. Environment Setup
+Create a `.env` file from `.env.example`:
 ```bash
-# 1. Clone the repository
-git clone https://github.com/yourusername/courtroomai.git
-cd courtroomai
-
-# 2. Create virtual environment and install dependencies
-uv venv 
-.\.venv\Scripts\activate   # (or source .venv/bin/activate on Mac/Linux)
-uv pip install -r requirements.txt
-
-# 3. Setup environment variables
 cp .env.example .env
 ```
 
-**Inside your `.env` file, you must include:**
+Add your API keys in `.env`:
 ```env
-GROQ_API_KEY="your_groq_key_here"
-TAVILY_API_KEY="your_tavily_key_here"
-LANGCHAIN_API_KEY="your_langsmith_key_here" # Optional: For LangSmith Tracing
-LANGCHAIN_TRACING_V2="true"
-LANGCHAIN_PROJECT="courtroomai"
+GROQ_API_KEY="your_groq_api_key_here"
+TAVILY_API_KEY="your_tavily_api_key_here"
+LANGCHAIN_API_KEY="your_langsmith_key_here"  # Optional: For LangSmith tracing
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_PROJECT=courtroom-ai
 ```
 
----
-
-## 🖥️ Usage
-
-Boot the application using Streamlit. To ensure Python module pathing works flawlessly, use python module running or `uv run`:
-
+### 3. Install Python Dependencies
 ```bash
-uv run streamlit run ui/app.py
+pip install -r requirements.txt
 ```
 
-### Loading Sample Cases
-If you don't have a case to type out, simply use the sidebar dropdown to load one of the built-in simulations:
-- **Insider Trading**
-- **Corporate Fraud** (Theranos-style)
-- **IP Theft & Trade Secrets** (LiDAR technology espionage)
+### 4. Run CourtRoom AI
+Start the unified application (FastAPI server serving the built web app):
+```bash
+python main.py
+```
+Open **[http://localhost:8000](http://localhost:8000)** in your browser!
 
-Once the run completes, download your generated **PDF Trial Transcript** straight from the UI!
+Interactive API documentation (Swagger) is available at **[http://localhost:8000/docs](http://localhost:8000/docs)**.
 
 ---
 
-## 🔮 Future Roadmap & Planned Updates
-- 📡 **Live Legal Database Integration:** Direct API connections to real-world legal databases (e.g., PACER, CourtListener) for live case retrieval and citation validation.
-- 🖼️ **Multi-Modal Evidence Ingestion:** Allow agents to analyze image-based evidence, audio transcripts, and visual exhibits during the trial.
-- 🧑‍⚖️ **Customizable Judge Personas:** Toggle the presiding judge's judicial philosophy (e.g., Strict Textualist, Pragmatist) to observe its impact on the trial outcome.
-- 📊 **Advanced Jury Analytics:** Heatmaps, demographic clustering, and explainable AI metrics detailing exactly *why* specific jury demographics voted the way they did.
-- 💾 **State Persistence:** Ability to pause, save, and resume long-running simulated trials.
-- 🔌 **Expanded Local Model Support:** Out-of-the-box integration for local `Ollama` models to run fully private, offline courtroom simulations.
+## 💻 Development Workflow
+
+### Running Backend with Hot Reload:
+```bash
+python main.py --reload
+# or: uvicorn server.app:app --reload --port 8000
+```
+
+### Running Frontend Vite Dev Server:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+The frontend dev server runs at **[http://localhost:5173](http://localhost:5173)** and automatically proxies `/api` calls to the FastAPI backend at port 8000.
+
+### Building Frontend for Production:
+```bash
+cd frontend
+npm run build
+```
+Build outputs are placed in `frontend/dist/` and automatically served by FastAPI on root `/`.
+
+### Legacy Streamlit UI:
+If you need to access the legacy Streamlit interface:
+```bash
+python main.py --streamlit
+# or: streamlit run ui/app.py
+```
+
+---
+
+## 🧪 Testing
+
+CourtRoom AI includes a comprehensive automated test suite covering agent utilities, JSON schemas, citation extraction, LangGraph routing, RAG session isolation, and FastAPI REST endpoints.
+
+Run tests using pytest:
+```bash
+pytest -v
+```
+
+---
+
+## 📡 API Reference
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/health` | `GET` | System health check and API key validation |
+| `/api/cases/samples` | `GET` | List pre-configured benchmark cases |
+| `/api/cases/cached` | `GET` | List instant pre-recorded demo cases |
+| `/api/cases/load-cached/{filename}` | `POST` | Load a pre-recorded demo simulation |
+| `/api/trials` | `POST` | Initialize a new trial and upload PDF exhibits |
+| `/api/trials/{id}` | `GET` | Fetch current trial state |
+| `/api/trials/{id}/stream` | `GET` | Server-Sent Events (SSE) stream for live simulation |
+| `/api/trials/{id}/export/pdf` | `GET` | Download certified PDF trial transcript |
+| `/api/trials/{id}/export/json` | `GET` | Download full trial state JSON |
 
 ---
 
 <p align="center">
-  <i>Developed as a legal reasoning and review tool. Not intended for actual legal advice or judicial replacement.</i>
+  <i>Developed for legal argument simulation, education, and precedent review. Not intended for actual legal advice or judicial replacement.</i>
 </p>

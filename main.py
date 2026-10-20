@@ -2,6 +2,13 @@ import sys
 import argparse
 import uvicorn
 
+# Ensure UTF-8 output on Windows consoles if supported
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="CourtRoom AI - Legal Simulation Platform")
@@ -32,12 +39,12 @@ def main() -> None:
 
     if args.streamlit:
         import subprocess
-        print("Launching legacy Streamlit UI...")
+        print("[CourtRoom AI] Launching legacy Streamlit UI...")
         subprocess.run(["streamlit", "run", "ui/app.py"])
         return
 
-    print(f"⚖️ Starting CourtRoom AI API Server at http://{args.host}:{args.port}")
-    print(f"📖 Interactive API Documentation available at http://{args.host}:{args.port}/docs")
+    print(f"[CourtRoom AI] Starting API Server at http://{args.host}:{args.port}")
+    print(f"[CourtRoom AI] Interactive API Documentation available at http://{args.host}:{args.port}/docs")
     uvicorn.run("server.app:app", host=args.host, port=args.port, reload=args.reload)
 
 
